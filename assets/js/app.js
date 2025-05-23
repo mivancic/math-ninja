@@ -333,6 +333,9 @@ class MathNinjaApp {
       continueBtn.style.display = "none";
     }
 
+    // Update progress indicator
+    this.updateProgressIndicator();
+
     // Start background music on menu
     this.audioManager.startBackgroundMusic();
   }
@@ -829,6 +832,9 @@ class MathNinjaApp {
       star.textContent = i < performanceData.stars ? "⭐" : "☆";
       starsContainer.appendChild(star);
     }
+
+    // Update action buttons based on level and performance
+    this.updateLevelCompleteActions(gameStats, performanceData);
   }
 
   /**
@@ -1070,6 +1076,105 @@ class MathNinjaApp {
     const continueBtn = document.getElementById("continueGameBtn");
     if (continueBtn) {
       continueBtn.style.display = "none";
+    }
+  }
+
+  /**
+   * Update progress indicator on menu screen
+   */
+  updateProgressIndicator() {
+    const completedLevels = this.stats.completedLevels.length;
+    const totalLevels = GAME_CONFIG.MAX_LEVEL;
+    const progressPercentage = Math.round(
+      (completedLevels / totalLevels) * 100
+    );
+
+    // Update stats text
+    document.getElementById(
+      "progressStats"
+    ).textContent = `${completedLevels}/${totalLevels}`;
+
+    // Update progress bar
+    const progressBar = document.getElementById("progressBar");
+    progressBar.style.width = `${progressPercentage}%`;
+
+    // Update percentage text
+    document.getElementById(
+      "progressPercentage"
+    ).textContent = `${progressPercentage}%`;
+
+    // Calculate overall accuracy based on stars
+    const totalStars = Object.values(this.stats.levelStars).reduce(
+      (sum, stars) => sum + stars,
+      0
+    );
+    const maxPossibleStars = completedLevels * 3;
+
+    // Update star progress indicators
+    const starElements = [
+      document.getElementById("starProgress1"),
+      document.getElementById("starProgress2"),
+      document.getElementById("starProgress3"),
+    ];
+
+    if (maxPossibleStars > 0) {
+      const starAccuracy = (totalStars / maxPossibleStars) * 3;
+
+      starElements.forEach((star, index) => {
+        if (index < Math.floor(starAccuracy)) {
+          star.textContent = "⭐";
+          star.classList.add("filled");
+        } else if (index < starAccuracy) {
+          // Partial star
+          star.textContent = "⭐";
+          star.classList.add("filled");
+          star.style.opacity = "0.5";
+        } else {
+          star.textContent = "☆";
+          star.classList.remove("filled");
+          star.style.opacity = "1";
+        }
+      });
+    } else {
+      // No levels completed yet
+      starElements.forEach((star) => {
+        star.textContent = "☆";
+        star.classList.remove("filled");
+        star.style.opacity = "1";
+      });
+    }
+  }
+
+  /**
+   * Update level complete action buttons
+   */
+  updateLevelCompleteActions(gameStats, performanceData) {
+    const currentLevel = this.gameEngine.currentLevel;
+    const nextLevelBtn = document.getElementById("nextLevelBtn");
+    const retryLevelBtn = document.getElementById("retryLevelBtn");
+
+    // Show next level button if not on max level and current level is not daily challenge
+    if (currentLevel > 0 && currentLevel < GAME_CONFIG.MAX_LEVEL) {
+      nextLevelBtn.style.display = "block";
+    } else {
+      nextLevelBtn.style.display = "none";
+    }
+
+    // Show retry button only if less than 3 stars
+    if (currentLevel > 0 && performanceData.stars < 3) {
+      retryLevelBtn.style.display = "block";
+    } else {
+      retryLevelBtn.style.display = "none";
+    }
+  }
+
+  /**
+   * Go to next level
+   */
+  goToNextLevel() {
+    const currentLevel = this.gameEngine.currentLevel;
+    if (currentLevel > 0 && currentLevel < GAME_CONFIG.MAX_LEVEL) {
+      this.startGame(currentLevel + 1);
     }
   }
 }

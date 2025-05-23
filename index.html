@@ -107,6 +107,23 @@
         <h1>🥷 Matematički Ninja</h1>
         <div class="ninja-avatar"></div>
 
+        <!-- Progress Indicator -->
+        <div class="progress-indicator">
+          <div class="progress-header">
+            <span class="progress-title">Napredak</span>
+            <span class="progress-stats" id="progressStats">0/10</span>
+          </div>
+          <div class="progress-bar-container">
+            <div class="progress-bar" id="progressBar"></div>
+            <div class="progress-percentage" id="progressPercentage">0%</div>
+          </div>
+          <div class="stars-progress">
+            <span class="star-progress" id="starProgress1">☆</span>
+            <span class="star-progress" id="starProgress2">☆</span>
+            <span class="star-progress" id="starProgress3">☆</span>
+          </div>
+        </div>
+
         <!-- Game Actions Group -->
         <div class="menu-group game-actions">
           <button
@@ -341,12 +358,33 @@
             <span id="finalStreak">0</span>
           </div>
         </div>
-        <button class="menu-button" onclick="mathNinja.showMenu()">
-          Glavni Izbornik
-        </button>
-        <button class="menu-button" onclick="mathNinja.retryLevel()">
-          Ponovi Razinu
-        </button>
+        <div class="level-complete-actions">
+          <button
+            class="menu-button primary"
+            id="nextLevelBtn"
+            onclick="mathNinja.goToNextLevel()"
+            style="display: none"
+          >
+            Sljedeći Level
+          </button>
+          <button
+            class="menu-button secondary"
+            onclick="mathNinja.showLevelSelect()"
+          >
+            Odaberi Level
+          </button>
+          <button
+            class="menu-button secondary"
+            id="retryLevelBtn"
+            onclick="mathNinja.retryLevel()"
+            style="display: none"
+          >
+            Ponovi Level
+          </button>
+          <button class="menu-button" onclick="mathNinja.showMenu()">
+            Glavni Izbornik
+          </button>
+        </div>
       </div>
     </div>
 

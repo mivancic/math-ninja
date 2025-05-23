@@ -62,18 +62,75 @@ export class AudioManager {
    */
   setupMobileAudioUnlock() {
     const unlockAudio = async () => {
-      if (this.audioContext && this.audioContext.state === "suspended") {
-        await this.audioContext.resume();
-        console.log("🔓 Audio unlocked for mobile");
+      try {
+        // Unlock Web Audio Context
+        if (this.audioContext && this.audioContext.state === "suspended") {
+          await this.audioContext.resume();
+          console.log("🔓 Web Audio Context unlocked for mobile");
+        }
+
+        // Test and unlock HTML5 Audio
+        const testAudio = new Audio();
+        testAudio.volume = 0.01; // Very quiet test
+        testAudio.muted = true;
+        testAudio.currentTime = 0;
+
+        // Try to play test sound
+        try {
+          const playPromise = testAudio.play();
+          if (playPromise !== undefined) {
+            await playPromise;
+            testAudio.pause();
+            testAudio.currentTime = 0;
+            console.log("🔓 HTML5 Audio unlocked for mobile");
+          }
+        } catch (e) {
+          console.log("⚠️ HTML5 Audio unlock failed:", e);
+        }
+
+        // Try to unlock all preloaded sounds
+        for (const [soundName, audio] of this.sounds) {
+          if (audio instanceof Audio) {
+            try {
+              audio.muted = false; // Unmute sounds
+              audio.volume = 0.01; // Very quiet
+              const playPromise = audio.play();
+              if (playPromise !== undefined) {
+                await playPromise;
+                audio.pause();
+                audio.currentTime = 0;
+              }
+            } catch (e) {
+              // Silent fail - not all sounds need to be unlocked
+            }
+          }
+        }
+
+        console.log("🎵 Mobile audio system fully unlocked");
+      } catch (error) {
+        console.log("⚠️ Mobile audio unlock error:", error);
       }
 
       // Remove listeners after first unlock
       document.removeEventListener("touchstart", unlockAudio);
       document.removeEventListener("click", unlockAudio);
+      document.removeEventListener("touchend", unlockAudio);
+      document.removeEventListener("keydown", unlockAudio);
     };
 
-    document.addEventListener("touchstart", unlockAudio, { once: true });
+    // Add multiple event listeners for better compatibility
+    document.addEventListener("touchstart", unlockAudio, {
+      once: true,
+      passive: true,
+    });
+    document.addEventListener("touchend", unlockAudio, {
+      once: true,
+      passive: true,
+    });
     document.addEventListener("click", unlockAudio, { once: true });
+    document.addEventListener("keydown", unlockAudio, { once: true });
+
+    console.log("📱 Mobile audio unlock listeners added");
   }
 
   /**
@@ -284,13 +341,34 @@ export class AudioManager {
         audioClone.loop = true;
       }
 
-      // Play with promise handling for better browser support
+      // Enhanced mobile support
+      audioClone.muted = false;
+      audioClone.preload = "auto";
+
+      // Reset audio position for better reliability
+      audioClone.currentTime = 0;
+
+      // Play with enhanced promise handling for mobile
       const playPromise = audioClone.play();
 
       if (playPromise !== undefined) {
-        playPromise.catch((error) => {
-          console.log("Audio play failed:", error);
-        });
+        playPromise
+          .then(() => {
+            // Success - audio is playing
+          })
+          .catch((error) => {
+            console.log(`Audio play failed for ${soundName}:`, error);
+
+            // Try alternative play method for iOS
+            setTimeout(() => {
+              try {
+                audioClone.currentTime = 0;
+                audioClone.play();
+              } catch (retryError) {
+                console.log(`Retry failed for ${soundName}:`, retryError);
+              }
+            }, 10);
+          });
       }
 
       return audioClone;
@@ -316,6 +394,9 @@ export class AudioManager {
       this.backgroundMusic = this.sounds.get("background-music").cloneNode();
       this.backgroundMusic.volume = this.musicVolume;
       this.backgroundMusic.loop = true;
+      this.backgroundMusic.muted = false;
+      this.backgroundMusic.preload = "auto";
+      this.backgroundMusic.currentTime = 0;
 
       const playPromise = this.backgroundMusic.play();
 
@@ -327,7 +408,23 @@ export class AudioManager {
           })
           .catch((error) => {
             console.log("Background music play failed:", error);
+
+            // Try alternative method for mobile
+            setTimeout(() => {
+              try {
+                this.backgroundMusic.currentTime = 0;
+                this.backgroundMusic.play();
+                this.isBackgroundMusicPlaying = true;
+                console.log("🎵 Background music started (retry)");
+              } catch (retryError) {
+                console.log("Background music retry failed:", retryError);
+              }
+            }, 10);
           });
+      } else {
+        // Fallback for older browsers
+        this.isBackgroundMusicPlaying = true;
+        console.log("🎵 Background music started (legacy)");
       }
     } catch (error) {
       console.log("Error starting background music:", error);
