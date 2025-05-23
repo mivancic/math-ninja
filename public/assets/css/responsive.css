@@ -1,0 +1,154 @@
+/* Math Ninja - Responsive Design */
+
+/* Mobile Styles */
+@media (max-width: 600px) {
+    h1 { 
+        font-size: 2em; 
+    }
+    
+    .question-container { 
+        font-size: 1.5em; 
+        padding: 20px;
+    }
+    
+    .answer-button { 
+        font-size: 1.2em; 
+        padding: 15px;
+    }
+    
+    .level-selector { 
+        grid-template-columns: repeat(3, 1fr); 
+    }
+    
+    .game-container {
+        padding: 20px;
+        width: 95%;
+    }
+    
+    .ninja-avatar {
+        width: 120px;
+        height: 120px;
+    }
+    
+    .ninja-avatar::before {
+        font-size: 80px;
+    }
+    
+    .menu-button {
+        padding: 12px 24px;
+        font-size: 1em;
+    }
+    
+    .score-display {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .score-item {
+        min-width: auto;
+        width: 100%;
+        max-width: 200px;
+    }
+}
+
+/* Tablet Styles */
+@media (min-width: 601px) and (max-width: 900px) {
+    .game-container {
+        max-width: 500px;
+    }
+    
+    .level-selector {
+        grid-template-columns: repeat(4, 1fr);
+    }
+    
+    h1 {
+        font-size: 2.2em;
+    }
+}
+
+/* Small Mobile Styles */
+@media (max-width: 400px) {
+    .game-container {
+        padding: 15px;
+        margin: 10px;
+    }
+    
+    h1 {
+        font-size: 1.8em;
+    }
+    
+    .question-container {
+        font-size: 1.3em;
+        padding: 15px;
+    }
+    
+    .answer-button {
+        font-size: 1.1em;
+        padding: 12px;
+    }
+    
+    .answer-buttons {
+        gap: 10px;
+    }
+    
+    .level-selector {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+    
+    .level-button {
+        padding: 15px;
+        font-size: 1em;
+    }
+}
+
+/* Touch-friendly Enhancements */
+@media (hover: none) and (pointer: coarse) {
+    .answer-button,
+    .menu-button,
+    .level-button {
+        min-height: 44px;
+        min-width: 44px;
+    }
+    
+    .answer-button:hover {
+        transform: none;
+        background: rgba(255, 255, 255, 0.9);
+    }
+    
+    .menu-button:hover {
+        transform: none;
+    }
+    
+    .level-button:hover {
+        transform: none;
+        background: rgba(255, 255, 255, 0.3);
+    }
+}
+
+/* Landscape Mobile */
+@media (max-width: 900px) and (orientation: landscape) {
+    .game-container {
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    
+    .ninja-avatar {
+        width: 100px;
+        height: 100px;
+        margin: 10px auto;
+    }
+    
+    .ninja-avatar::before {
+        font-size: 60px;
+    }
+    
+    h1 {
+        margin-bottom: 10px;
+    }
+    
+    .menu-button {
+        margin: 5px;
+        padding: 10px 20px;
+    }
+} 

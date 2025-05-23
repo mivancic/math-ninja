@@ -1,0 +1,113 @@
+/* Math Ninja - Component Styles */
+
+/* Ninja Avatar */
+.ninja-avatar {
+    width: 150px;
+    height: 150px;
+    background: #333;
+    border-radius: 50%;
+    margin: 20px auto;
+    position: relative;
+    overflow: hidden;
+}
+
+.ninja-avatar::before {
+    content: "🥷";
+    font-size: 100px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* Buttons */
+.menu-button {
+    background: linear-gradient(45deg, #f093fb 0%, #f5576c 100%);
+    border: none;
+    color: white;
+    padding: 15px 30px;
+    font-size: 1.2em;
+    border-radius: 30px;
+    margin: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.menu-button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+.answer-button {
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    color: #333;
+    padding: 20px;
+    font-size: 1.5em;
+    border-radius: 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: bold;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.answer-button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    background: white;
+}
+
+.answer-button:active {
+    transform: translateY(0);
+}
+
+.answer-button.correct-answer {
+    background: #4caf50;
+    color: white;
+}
+
+.answer-button.wrong-answer {
+    background: #f44336;
+    color: white;
+}
+
+.level-button {
+    background: rgba(255, 255, 255, 0.3);
+    border: none;
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 1.2em;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.level-button:hover {
+    background: rgba(255, 255, 255, 0.4);
+    transform: scale(1.05);
+}
+
+.level-button.completed::after {
+    content: "⭐";
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    font-size: 0.8em;
+}
+
+.back-button {
+    background: rgba(255, 255, 255, 0.3);
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: all 0.3s ease;
+}
+
+.back-button:hover {
+    background: rgba(255, 255, 255, 0.4);
+} 
