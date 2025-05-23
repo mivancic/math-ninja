@@ -1,0 +1,203 @@
+/* Math Ninja - Main Styles */
+
+/* Reset and Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+}
+
+/* Main Container */
+.game-container {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    max-width: 600px;
+    width: 90%;
+    text-align: center;
+}
+
+/* Typography */
+h1 {
+    font-size: 2.5em;
+    margin-bottom: 20px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+h2 {
+    font-size: 1.8em;
+    margin-bottom: 15px;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Screen Management */
+.menu-screen, 
+.game-screen, 
+.stats-screen, 
+.level-complete-screen,
+.level-select-screen {
+    display: none;
+}
+
+.menu-screen.active, 
+.game-screen.active, 
+.stats-screen.active, 
+.level-complete-screen.active {
+    display: block;
+}
+
+/* Game UI Elements */
+.question-container {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 30px;
+    border-radius: 15px;
+    margin: 20px 0;
+    font-size: 2em;
+}
+
+.score-display {
+    display: flex;
+    justify-content: space-around;
+    margin: 20px 0;
+    flex-wrap: wrap;
+}
+
+.score-item {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 10px 20px;
+    border-radius: 20px;
+    margin: 5px;
+    min-width: 120px;
+}
+
+/* Timer */
+.timer-bar {
+    width: 100%;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 20px 0;
+}
+
+.timer-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4caf50, #8bc34a);
+    transition: width 0.1s linear;
+    border-radius: 10px;
+}
+
+/* Answer Buttons Grid */
+.answer-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    margin: 20px auto;
+    max-width: 400px;
+}
+
+/* Level Selector */
+.level-selector {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin: 20px 0;
+}
+
+/* Statistics Grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.stat-card {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 20px;
+    border-radius: 15px;
+    transition: transform 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: scale(1.05);
+}
+
+/* Results and Performance */
+.results-container {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 20px;
+    border-radius: 15px;
+    margin: 20px 0;
+}
+
+.result-item {
+    display: flex;
+    justify-content: space-between;
+    margin: 10px 0;
+    font-size: 1.2em;
+}
+
+.result-label {
+    font-weight: bold;
+}
+
+.performance-image {
+    width: 200px;
+    height: 200px;
+    margin: 20px auto;
+    font-size: 150px;
+}
+
+.performance-title {
+    font-size: 2em;
+    margin: 20px 0;
+    font-weight: bold;
+}
+
+/* Stars */
+.stars-container {
+    margin: 20px 0;
+    font-size: 50px;
+}
+
+.star {
+    display: inline-block;
+}
+
+/* Streak Display */
+.streak-display {
+    font-size: 1.5em;
+    margin: 10px 0;
+}
+
+/* Feedback Messages */
+.feedback {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 3em;
+    pointer-events: none;
+    z-index: 1000;
+}
+
+.correct { 
+    color: #4caf50; 
+}
+
+.incorrect { 
+    color: #f44336; 
+} 

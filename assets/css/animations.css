@@ -1,0 +1,620 @@
+/* Math Ninja - Animations */
+
+/* Main Container Animation */
+.game-container {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Title Glow Animation */
+h1 {
+  animation: glow 2s ease-in-out infinite;
+}
+
+@keyframes glow {
+  0%,
+  100% {
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3),
+      0 0 10px rgba(255, 255, 255, 0.5);
+  }
+  50% {
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3),
+      0 0 20px rgba(255, 255, 255, 0.8);
+  }
+}
+
+/* Ninja Avatar Animation */
+.ninja-avatar {
+  animation: bounce 2s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+/* Question Slide In */
+.question-container {
+  animation: slideIn 0.5s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Answer Button Feedback */
+.answer-button.correct-answer {
+  animation: correctPulse 0.6s ease;
+}
+
+.answer-button.wrong-answer {
+  animation: shake 0.5s ease;
+}
+
+@keyframes correctPulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-10px);
+  }
+  75% {
+    transform: translateX(10px);
+  }
+}
+
+/* Streak Display Pulse */
+.streak-display {
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+/* Feedback Animation */
+.feedback {
+  animation: feedbackAnim 1s ease;
+}
+
+@keyframes feedbackAnim {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* Performance Image Celebration */
+.performance-image {
+  animation: celebrate 1s ease-in-out;
+}
+
+@keyframes celebrate {
+  0% {
+    transform: scale(0) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.2) rotate(180deg);
+  }
+  100% {
+    transform: scale(1) rotate(360deg);
+  }
+}
+
+/* Performance Title Slide In */
+.performance-title {
+  animation: slideIn 0.5s ease;
+}
+
+/* Stars Pop Animation */
+.star {
+  animation: starPop 0.5s ease;
+  animation-fill-mode: both;
+}
+
+.star:nth-child(1) {
+  animation-delay: 0.2s;
+}
+
+.star:nth-child(2) {
+  animation-delay: 0.4s;
+}
+
+.star:nth-child(3) {
+  animation-delay: 0.6s;
+}
+
+@keyframes starPop {
+  0% {
+    transform: scale(0) rotate(0deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.3) rotate(180deg);
+  }
+  100% {
+    transform: scale(1) rotate(360deg);
+    opacity: 1;
+  }
+}
+
+/* Math Ninja - Enhanced Animations */
+
+/* Existing feedback animations */
+.feedback {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 4em;
+  font-weight: bold;
+  z-index: 1000;
+  pointer-events: none;
+  animation: feedback-bounce 1s ease-out forwards;
+}
+
+.feedback.correct {
+  color: #4caf50;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.feedback.incorrect {
+  color: #f44336;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes feedback-bounce {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.3);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0;
+  }
+}
+
+/* Timer animations */
+.timer-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.timer-fill {
+  transition: width 0.1s linear;
+  border-radius: inherit;
+}
+
+/* Button animations - Enhanced */
+.answer-button {
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.answer-button:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.answer-button:active {
+  transform: translateY(-1px) scale(0.98);
+  transition: all 0.1s ease;
+}
+
+.menu-button {
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.menu-button:hover {
+  transform: translateY(-4px) scale(1.03);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+}
+
+.menu-button:active {
+  transform: translateY(-2px) scale(1.01);
+  transition: all 0.1s ease;
+}
+
+/* Level completion animations */
+.level-complete-screen.active {
+  animation: level-complete-entrance 0.8s ease-out;
+}
+
+@keyframes level-complete-entrance {
+  0% {
+    opacity: 0;
+    transform: scale(0.8) translateY(50px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.star {
+  display: inline-block;
+  animation: star-twinkle 1s ease-in-out infinite alternate;
+}
+
+.star:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.star:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes star-twinkle {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+
+/* NEW: Streak Visual Effects */
+
+/* Pulse animation for streak effects */
+@keyframes pulse-effect {
+  0% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(1.02);
+  }
+}
+
+/* Shake animation for high streaks */
+@keyframes shake-effect {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    transform: translateX(-2px);
+  }
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: translateX(2px);
+  }
+}
+
+/* Glow effects for different streak levels */
+.theme-warming-up .game-container {
+  box-shadow: 0 0 20px rgba(240, 147, 251, 0.4),
+    0 0 40px rgba(245, 87, 108, 0.2);
+}
+
+.theme-getting-hot .game-container {
+  box-shadow: 0 0 30px rgba(255, 154, 158, 0.5),
+    0 0 60px rgba(254, 207, 239, 0.3);
+  animation: pulse-glow-1 2s infinite alternate;
+}
+
+.theme-on-fire .game-container {
+  box-shadow: 0 0 40px rgba(250, 112, 154, 0.6),
+    0 0 80px rgba(254, 225, 64, 0.4);
+  animation: pulse-glow-2 1.5s infinite alternate;
+}
+
+.theme-blazing .game-container {
+  box-shadow: 0 0 50px rgba(255, 107, 107, 0.7),
+    0 0 100px rgba(255, 165, 0, 0.5), 0 0 150px rgba(255, 255, 0, 0.3);
+  animation: pulse-glow-3 1s infinite alternate, shake-intense 0.2s infinite;
+}
+
+.theme-legendary .game-container {
+  box-shadow: 0 0 60px rgba(255, 0, 0, 0.8), 0 0 120px rgba(255, 69, 0, 0.6),
+    0 0 180px rgba(255, 215, 0, 0.4), 0 0 240px rgba(255, 255, 0, 0.2);
+  animation: pulse-glow-legendary 0.8s infinite alternate,
+    shake-legendary 0.15s infinite, rainbow-border 3s infinite;
+}
+
+/* Glow pulse animations */
+@keyframes pulse-glow-1 {
+  0% {
+    box-shadow: 0 0 20px rgba(240, 147, 251, 0.4),
+      0 0 40px rgba(245, 87, 108, 0.2);
+  }
+  100% {
+    box-shadow: 0 0 30px rgba(240, 147, 251, 0.6),
+      0 0 60px rgba(245, 87, 108, 0.4);
+  }
+}
+
+@keyframes pulse-glow-2 {
+  0% {
+    box-shadow: 0 0 30px rgba(255, 154, 158, 0.5),
+      0 0 60px rgba(254, 207, 239, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 50px rgba(255, 154, 158, 0.7),
+      0 0 100px rgba(254, 207, 239, 0.5);
+  }
+}
+
+@keyframes pulse-glow-3 {
+  0% {
+    box-shadow: 0 0 40px rgba(255, 107, 107, 0.6),
+      0 0 80px rgba(255, 165, 0, 0.4), 0 0 120px rgba(255, 255, 0, 0.2);
+  }
+  100% {
+    box-shadow: 0 0 60px rgba(255, 107, 107, 0.8),
+      0 0 120px rgba(255, 165, 0, 0.6), 0 0 180px rgba(255, 255, 0, 0.4);
+  }
+}
+
+@keyframes pulse-glow-legendary {
+  0% {
+    box-shadow: 0 0 50px rgba(255, 0, 0, 0.7), 0 0 100px rgba(255, 69, 0, 0.5),
+      0 0 150px rgba(255, 215, 0, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 80px rgba(255, 0, 0, 0.9), 0 0 160px rgba(255, 69, 0, 0.7),
+      0 0 240px rgba(255, 215, 0, 0.5), 0 0 320px rgba(255, 255, 0, 0.3);
+  }
+}
+
+/* Intense shake animations */
+@keyframes shake-intense {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-3px) translateY(-1px);
+  }
+  50% {
+    transform: translateX(3px) translateY(1px);
+  }
+  75% {
+    transform: translateX(-2px) translateY(-1px);
+  }
+}
+
+@keyframes shake-legendary {
+  0%,
+  100% {
+    transform: translateX(0) translateY(0);
+  }
+  20% {
+    transform: translateX(-4px) translateY(-2px);
+  }
+  40% {
+    transform: translateX(4px) translateY(2px);
+  }
+  60% {
+    transform: translateX(-3px) translateY(2px);
+  }
+  80% {
+    transform: translateX(3px) translateY(-2px);
+  }
+}
+
+/* Rainbow border for legendary level */
+@keyframes rainbow-border {
+  0% {
+    border-color: #ff0000;
+  }
+  16.66% {
+    border-color: #ff4500;
+  }
+  33.33% {
+    border-color: #ffd700;
+  }
+  50% {
+    border-color: #adff2f;
+  }
+  66.66% {
+    border-color: #00bfff;
+  }
+  83.33% {
+    border-color: #8a2be2;
+  }
+  100% {
+    border-color: #ff0000;
+  }
+}
+
+/* Streak counter special effects */
+.streak-display {
+  transition: all 0.3s ease;
+}
+
+.streak-display.streak-active {
+  animation: streak-highlight 0.5s ease;
+}
+
+@keyframes streak-highlight {
+  0% {
+    transform: scale(1);
+    text-shadow: 0 0 0 transparent;
+  }
+  50% {
+    transform: scale(1.2);
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+  }
+  100% {
+    transform: scale(1);
+    text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+  }
+}
+
+/* Enhanced answer button feedback */
+.answer-button.correct-answer {
+  animation: correct-answer-pulse 0.6s ease-out;
+}
+
+.answer-button.wrong-answer {
+  animation: wrong-answer-shake 0.6s ease-out;
+}
+
+@keyframes correct-answer-pulse {
+  0% {
+    transform: scale(1);
+    background: #4caf50;
+  }
+  50% {
+    transform: scale(1.1);
+    background: #66bb6a;
+    box-shadow: 0 0 20px rgba(76, 175, 80, 0.6);
+  }
+  100% {
+    transform: scale(1);
+    background: #4caf50;
+  }
+}
+
+@keyframes wrong-answer-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+    background: #f44336;
+  }
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    transform: translateX(-5px);
+    background: #ef5350;
+  }
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: translateX(5px);
+    background: #e57373;
+  }
+}
+
+/* Background transition effects */
+body {
+  transition: background 1s ease-in-out;
+}
+
+/* Streak notification */
+.streak-notification {
+  position: fixed;
+  top: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(45deg, #ffd700, #ffef41);
+  color: #333;
+  padding: 15px 25px;
+  border-radius: 25px;
+  font-weight: bold;
+  font-size: 1.2em;
+  z-index: 2000;
+  animation: streak-notification-bounce 2s ease-out forwards;
+  box-shadow: 0 10px 30px rgba(255, 215, 0, 0.5);
+}
+
+@keyframes streak-notification-bounce {
+  0% {
+    transform: translateX(-50%) translateY(-50px) scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: translateX(-50%) translateY(0) scale(1.1);
+    opacity: 1;
+  }
+  80% {
+    transform: translateX(-50%) translateY(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-50%) translateY(-100px) scale(0.8);
+    opacity: 0;
+  }
+}
+
+/* Performance optimizations for mobile */
+@media (max-width: 600px) {
+  /* Reduce animation intensity on mobile for performance */
+  .theme-blazing .game-container,
+  .theme-legendary .game-container {
+    animation-duration: 2s; /* Slower animations */
+  }
+
+  /* Simplify particle effects on mobile */
+  #effectsCanvas {
+    opacity: 0.5; /* Less intense particles */
+  }
+}
+
+/* Accessibility - Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .game-container,
+  .answer-button,
+  .menu-button,
+  .feedback,
+  .star,
+  .streak-notification {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .answer-button:hover,
+  .menu-button:hover {
+    transform: none !important;
+  }
+}
