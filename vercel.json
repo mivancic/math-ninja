@@ -1,0 +1,62 @@
+{
+  "version": 2,
+  "buildCommand": null,
+  "outputDirectory": "./",
+  "installCommand": null,
+  "devCommand": null,
+  "framework": null,
+  "public": false,
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*).html",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/html; charset=utf-8"
+        }
+      ]
+    },
+    {
+      "source": "/(.*).js",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/javascript; charset=utf-8"
+        }
+      ]
+    },
+    {
+      "source": "/(.*).css",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/css; charset=utf-8"
+        }
+      ]
+    },
+    {
+      "source": "/(.*).wav",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "audio/wav"
+        }
+      ]
+    },
+    {
+      "source": "/(.*).mp3",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "audio/mpeg"
+        }
+      ]
+    }
+  ]
+} 
