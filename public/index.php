@@ -19,14 +19,56 @@
 </head>
 
 <body>
+    <!-- In-Game Settings Toggle -->
+    <div class="settings-toggle" id="settingsToggle">
+        <button class="settings-toggle-btn" onclick="mathNinja.toggleInGameSettings()">⚙️</button>
+    </div>
+
+    <!-- Sliding Settings Panel -->
+    <div class="settings-panel" id="settingsPanel">
+        <div class="settings-panel-header">
+            <h3>Postavke</h3>
+            <button class="close-settings-btn" onclick="mathNinja.toggleInGameSettings()">✕</button>
+        </div>
+        <div class="settings-panel-content">
+            <div class="settings-section">
+                <h4>🔊 Audio Postavke</h4>
+                <div class="audio-control-group">
+                    <label class="audio-label">Glavni zvuk:</label>
+                    <button class="audio-button" id="panelMasterMuteBtn" title="Glavni zvuk">🔊</button>
+                </div>
+                <div class="audio-control-group">
+                    <label class="audio-label">Efekti:</label>
+                    <input type="range" class="volume-slider" id="panelEffectsVolumeSlider" min="0" max="100" value="50">
+                    <button class="audio-button small" id="panelEffectsMuteBtn" title="Utišaj efekte">🔊</button>
+                </div>
+                <div class="audio-control-group">
+                    <label class="audio-label">Glazba:</label>
+                    <input type="range" class="volume-slider" id="panelMusicVolumeSlider" min="0" max="100" value="30">
+                    <button class="audio-button small" id="panelMusicMuteBtn" title="Utišaj glazbu">🎵</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="game-container">
         <!-- Glavni izbornik -->
         <div class="menu-screen active">
             <h1>🥷 Matematički Ninja</h1>
             <div class="ninja-avatar"></div>
-            <button class="menu-button" onclick="mathNinja.showLevelSelect()">Nova Igra</button>
-            <button class="menu-button" onclick="mathNinja.showStats()">Moje Statistike</button>
-            <button class="menu-button" onclick="mathNinja.startDailyChallenge()">Dnevni Izazov</button>
+
+            <!-- Game Actions Group -->
+            <div class="menu-group game-actions">
+                <button class="menu-button continue" id="continueGameBtn" onclick="mathNinja.resumeGame()" style="display: none;">Nastavi Igru</button>
+                <button class="menu-button primary" onclick="mathNinja.showLevelSelect()">Nova Igra</button>
+                <button class="menu-button primary" onclick="mathNinja.startDailyChallenge()">Dnevni Izazov</button>
+            </div>
+
+            <!-- User Actions Group -->
+            <div class="menu-group user-actions">
+                <button class="menu-button secondary" onclick="mathNinja.showStats()">Moje Statistike</button>
+                <button class="menu-button secondary" onclick="mathNinja.showSettings()">Postavke</button>
+            </div>
         </div>
 
         <!-- Odabir razine -->
@@ -38,7 +80,10 @@
 
         <!-- Igra -->
         <div class="game-screen">
-            <h2>Razina <span id="currentLevel">1</span></h2>
+            <div class="game-header">
+                <h2>Razina <span id="currentLevel">1</span></h2>
+                <button class="exit-game-btn" onclick="mathNinja.pauseAndExit()">Izađi</button>
+            </div>
             <div class="score-display">
                 <div class="score-item">Bodovi: <span id="score">0</span></div>
                 <div class="score-item">Točnost: <span id="accuracy">100</span>%</div>
@@ -59,6 +104,7 @@
         <div class="stats-screen">
             <h2>Moje Statistike</h2>
             <div class="stats-grid">
+                <!-- Basic Stats -->
                 <div class="stat-card">
                     <h3>Ukupni Bodovi</h3>
                     <p id="totalScore">0</p>
@@ -75,7 +121,78 @@
                     <h3>Dana Vježbanja</h3>
                     <p id="daysPlayed">0</p>
                 </div>
+
+                <!-- Enhanced Stats -->
+                <div class="stat-card">
+                    <h3>📅 Dnevni Streak</h3>
+                    <p id="dailyChallengeStreak">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>🔥 Najduži Dnevni Streak</h3>
+                    <p id="longestDailyStreak">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>⏱️ Ukupno Vremena</h3>
+                    <p id="totalPlaytime">0 min</p>
+                </div>
+                <div class="stat-card">
+                    <h3>⏱️ Danas Igranja</h3>
+                    <p id="todayPlaytime">0 min</p>
+                </div>
+                <div class="stat-card">
+                    <h3>🚀 Danas Pokretanja</h3>
+                    <p id="todayLaunches">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>📊 Prosječna Sesija</h3>
+                    <p id="averageSession">0 min</p>
+                </div>
+                <div class="stat-card">
+                    <h3>📚 Za Vježbanje</h3>
+                    <p id="wrongAnswersCount">0</p>
+                </div>
             </div>
+            <button class="back-button" onclick="mathNinja.showMenu()">Natrag</button>
+        </div>
+
+        <!-- Settings Screen -->
+        <div class="settings-screen">
+            <h2>⚙️ Postavke</h2>
+
+            <div class="settings-sections">
+                <div class="settings-section">
+                    <h3>🔊 Audio Postavke</h3>
+                    <div class="settings-content">
+                        <div class="audio-control-group">
+                            <label class="audio-label">Glavni zvuk:</label>
+                            <button class="audio-button" id="settingsMasterMuteBtn" title="Glavni zvuk">🔊</button>
+                        </div>
+                        <div class="audio-control-group">
+                            <label class="audio-label">Efekti (<span id="effectsVolumeDisplay">50</span>%):</label>
+                            <input type="range" class="volume-slider" id="settingsEffectsVolumeSlider" min="0" max="100" value="50">
+                            <button class="audio-button small" id="settingsEffectsMuteBtn" title="Utišaj efekte">🔊</button>
+                        </div>
+                        <div class="audio-control-group">
+                            <label class="audio-label">Glazba (<span id="musicVolumeDisplay">30</span>%):</label>
+                            <input type="range" class="volume-slider" id="settingsMusicVolumeSlider" min="0" max="100" value="30">
+                            <button class="audio-button small" id="settingsMusicMuteBtn" title="Utišaj glazbu">🎵</button>
+                        </div>
+
+                        <div class="settings-info">
+                            <p>💡 <strong>Savjet:</strong> Audio postavke se automatski spremaju i primjenjuju na sve dijelove igre.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Placeholder for future settings sections -->
+                <div class="settings-section">
+                    <h3>🎮 Igra Postavke</h3>
+                    <div class="settings-content">
+                        <p class="coming-soon">Uskoro dostupno: Postavke brzine igre, težine i drugih mogućnosti.</p>
+                    </div>
+                </div>
+            </div>
+
             <button class="back-button" onclick="mathNinja.showMenu()">Natrag</button>
         </div>
 

@@ -2,153 +2,388 @@
 
 /* Mobile Styles */
 @media (max-width: 600px) {
-    h1 { 
-        font-size: 2em; 
-    }
-    
-    .question-container { 
-        font-size: 1.5em; 
-        padding: 20px;
-    }
-    
-    .answer-button { 
-        font-size: 1.2em; 
-        padding: 15px;
-    }
-    
-    .level-selector { 
-        grid-template-columns: repeat(3, 1fr); 
-    }
-    
-    .game-container {
-        padding: 20px;
-        width: 95%;
-    }
-    
-    .ninja-avatar {
-        width: 120px;
-        height: 120px;
-    }
-    
-    .ninja-avatar::before {
-        font-size: 80px;
-    }
-    
-    .menu-button {
-        padding: 12px 24px;
-        font-size: 1em;
-    }
-    
-    .score-display {
-        flex-direction: column;
-        align-items: center;
-    }
-    
-    .score-item {
-        min-width: auto;
-        width: 100%;
-        max-width: 200px;
-    }
+  h1 {
+    font-size: 2em;
+  }
+
+  .question-container {
+    font-size: 1.5em;
+    padding: 20px;
+  }
+
+  .answer-button {
+    font-size: 1.2em;
+    padding: 15px;
+  }
+
+  .level-selector {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .game-container {
+    padding: 20px;
+    width: 95%;
+  }
+
+  .ninja-avatar {
+    width: 120px;
+    height: 120px;
+  }
+
+  .ninja-avatar::before {
+    font-size: 80px;
+  }
+
+  /* Menu Groups - Mobile */
+  .menu-group {
+    margin: 15px 0;
+    gap: 10px;
+  }
+
+  .menu-group.game-actions {
+    padding-bottom: 15px;
+    margin-bottom: 15px;
+  }
+
+  .menu-group.user-actions {
+    margin-top: 20px;
+  }
+
+  .menu-button {
+    padding: 12px 24px;
+    font-size: 1em;
+    min-width: 180px;
+    margin: 3px;
+  }
+
+  .menu-button.primary {
+    transform: scale(1);
+  }
+
+  .menu-button.secondary {
+    transform: scale(0.92);
+    font-size: 0.95em;
+  }
+
+  .menu-button.continue {
+    transform: scale(1.05);
+    font-size: 1.05em;
+    min-width: 190px;
+  }
+
+  .score-display {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .score-item {
+    min-width: auto;
+    width: 100%;
+    max-width: 200px;
+  }
+
+  /* Settings Toggle - Mobile */
+  .settings-toggle {
+    top: 10px;
+    right: 10px;
+  }
+
+  .settings-toggle-btn {
+    padding: 10px;
+    font-size: 1.3em;
+  }
+
+  /* Settings Panel - Mobile */
+  .settings-panel {
+    width: 100%;
+    right: -100%;
+    top: 10px;
+    max-height: calc(100vh - 20px);
+    border-radius: 15px 0 0 15px;
+  }
+
+  .settings-panel-header {
+    padding: 15px;
+  }
+
+  .settings-panel-header h3 {
+    font-size: 1.3em;
+  }
+
+  .settings-panel-content {
+    padding: 15px;
+  }
+
+  /* Settings Screen - Mobile */
+  .settings-sections {
+    max-width: 100%;
+    padding: 0 10px;
+  }
+
+  .settings-section {
+    padding: 20px 15px;
+    margin-bottom: 15px;
+  }
+
+  .settings-section h3 {
+    font-size: 1.2em;
+  }
+
+  .audio-control-group {
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .audio-label {
+    font-size: 0.85em;
+    min-width: auto;
+    text-align: center;
+  }
+
+  .volume-slider {
+    width: 100%;
+    margin: 5px 0;
+  }
+
+  .audio-button {
+    padding: 8px 12px;
+    font-size: 1.1em;
+  }
+
+  .audio-button.small {
+    padding: 6px 10px;
+    font-size: 1em;
+  }
+
+  /* Game Header - Mobile */
+  .game-header {
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 15px;
+  }
+
+  .game-header h2 {
+    font-size: 1.5em;
+    text-align: center;
+  }
+
+  .exit-game-btn {
+    align-self: center;
+    padding: 6px 14px;
+    font-size: 0.85em;
+  }
 }
 
 /* Tablet Styles */
 @media (min-width: 601px) and (max-width: 900px) {
-    .game-container {
-        max-width: 500px;
-    }
-    
-    .level-selector {
-        grid-template-columns: repeat(4, 1fr);
-    }
-    
-    h1 {
-        font-size: 2.2em;
-    }
+  .game-container {
+    max-width: 500px;
+  }
+
+  .level-selector {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  h1 {
+    font-size: 2.2em;
+  }
+
+  /* Settings Panel - Tablet */
+  .settings-panel {
+    width: 400px;
+    right: -400px;
+  }
+
+  .settings-sections {
+    max-width: 550px;
+  }
 }
 
 /* Small Mobile Styles */
 @media (max-width: 400px) {
-    .game-container {
-        padding: 15px;
-        margin: 10px;
-    }
-    
-    h1 {
-        font-size: 1.8em;
-    }
-    
-    .question-container {
-        font-size: 1.3em;
-        padding: 15px;
-    }
-    
-    .answer-button {
-        font-size: 1.1em;
-        padding: 12px;
-    }
-    
-    .answer-buttons {
-        gap: 10px;
-    }
-    
-    .level-selector {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 8px;
-    }
-    
-    .level-button {
-        padding: 15px;
-        font-size: 1em;
-    }
+  .game-container {
+    padding: 15px;
+    margin: 10px;
+  }
+
+  h1 {
+    font-size: 1.8em;
+  }
+
+  .question-container {
+    font-size: 1.3em;
+    padding: 15px;
+  }
+
+  .answer-button {
+    font-size: 1.1em;
+    padding: 12px;
+  }
+
+  .answer-buttons {
+    gap: 10px;
+  }
+
+  .level-selector {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .level-button {
+    padding: 15px;
+    font-size: 1em;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .level-stars {
+    font-size: 0.6em;
+    gap: 1px;
+  }
+
+  /* Settings Panel - Small Mobile */
+  .settings-panel-header {
+    padding: 12px;
+  }
+
+  .settings-panel-header h3 {
+    font-size: 1.2em;
+  }
+
+  .settings-panel-content {
+    padding: 12px;
+  }
+
+  .settings-section {
+    padding: 15px 10px;
+  }
+
+  .settings-section h3 {
+    font-size: 1.1em;
+    margin-bottom: 15px;
+  }
+
+  .audio-control-group {
+    margin-bottom: 10px;
+  }
+
+  .audio-label {
+    font-size: 0.8em;
+  }
+
+  .settings-info {
+    margin-top: 10px;
+    padding: 8px 12px;
+  }
+
+  .settings-info p {
+    font-size: 0.8em;
+  }
 }
 
 /* Touch-friendly Enhancements */
 @media (hover: none) and (pointer: coarse) {
-    .answer-button,
-    .menu-button,
-    .level-button {
-        min-height: 44px;
-        min-width: 44px;
-    }
-    
-    .answer-button:hover {
-        transform: none;
-        background: rgba(255, 255, 255, 0.9);
-    }
-    
-    .menu-button:hover {
-        transform: none;
-    }
-    
-    .level-button:hover {
-        transform: none;
-        background: rgba(255, 255, 255, 0.3);
-    }
+  .answer-button,
+  .menu-button,
+  .level-button,
+  .settings-toggle-btn,
+  .audio-button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .answer-button:hover {
+    transform: none;
+    background: rgba(255, 255, 255, 0.9);
+  }
+
+  .menu-button:hover {
+    transform: none;
+  }
+
+  .level-button:hover {
+    transform: none;
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  .settings-toggle-btn:hover {
+    transform: none;
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  .audio-button:hover {
+    transform: none;
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  /* Larger touch targets for sliders */
+  .volume-slider {
+    height: 8px;
+  }
+
+  .volume-slider::-webkit-slider-thumb {
+    width: 22px;
+    height: 22px;
+  }
+
+  .volume-slider::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+  }
 }
 
 /* Landscape Mobile */
 @media (max-width: 900px) and (orientation: landscape) {
-    .game-container {
-        max-height: 90vh;
-        overflow-y: auto;
-    }
-    
-    .ninja-avatar {
-        width: 100px;
-        height: 100px;
-        margin: 10px auto;
-    }
-    
-    .ninja-avatar::before {
-        font-size: 60px;
-    }
-    
-    h1 {
-        margin-bottom: 10px;
-    }
-    
-    .menu-button {
-        margin: 5px;
-        padding: 10px 20px;
-    }
-} 
+  .game-container {
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .ninja-avatar {
+    width: 100px;
+    height: 100px;
+    margin: 10px auto;
+  }
+
+  .ninja-avatar::before {
+    font-size: 60px;
+  }
+
+  h1 {
+    margin-bottom: 10px;
+  }
+
+  .menu-button {
+    margin: 5px;
+    padding: 10px 20px;
+  }
+
+  /* Settings Panel - Landscape */
+  .settings-panel {
+    width: 50%;
+    right: -50%;
+  }
+
+  .settings-panel-content {
+    padding: 15px;
+  }
+
+  .settings-section {
+    padding: 15px;
+    margin-bottom: 10px;
+  }
+}
+
+/* Settings Panel Animation Support */
+@media (prefers-reduced-motion: reduce) {
+  .settings-panel {
+    transition: none;
+  }
+
+  .settings-toggle-btn:hover {
+    transform: none;
+  }
+}
