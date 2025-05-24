@@ -916,6 +916,33 @@ class MathNinjaApp {
     if (wrongAnswersEl) {
       wrongAnswersEl.textContent = detailedStats.unlearnedWrongAnswers;
     }
+
+    // New stats elements
+    const totalSessionsEl = document.getElementById("totalSessions");
+    if (totalSessionsEl) {
+      totalSessionsEl.textContent = detailedStats.sessionCount;
+    }
+
+    const totalDailyRunsEl = document.getElementById("totalDailyRuns");
+    if (totalDailyRunsEl) {
+      const totalRuns =
+        this.statisticsManager.detailedStats.dailyChallengeRuns?.length || 0;
+      totalDailyRunsEl.textContent = totalRuns;
+    }
+
+    const completedLevelsEl = document.getElementById("completedLevels");
+    if (completedLevelsEl) {
+      completedLevelsEl.textContent = `${this.stats.completedLevels.length}/10`;
+    }
+
+    const totalStarsEl = document.getElementById("totalStars");
+    if (totalStarsEl) {
+      const totalStars = Object.values(this.stats.levelStars).reduce(
+        (sum, stars) => sum + stars,
+        0
+      );
+      totalStarsEl.textContent = `${totalStars}/30`;
+    }
   }
 
   /**
@@ -1337,6 +1364,406 @@ class MathNinjaApp {
         star.style.opacity = "1";
       });
     }
+  }
+
+  /**
+   * Toggle stats section expanded/collapsed
+   */
+  toggleStatsSection(sectionId) {
+    const section = document.querySelector(
+      `#${sectionId}Content`
+    ).parentElement;
+    const toggle = document.getElementById(`${sectionId}Toggle`);
+
+    section.classList.toggle("collapsed");
+
+    if (section.classList.contains("collapsed")) {
+      toggle.textContent = "▶";
+    } else {
+      toggle.textContent = "▼";
+    }
+
+    console.log(`📊 Toggled stats section: ${sectionId}`);
+  }
+
+  /**
+   * Show detailed statistics in a modal
+   */
+  showStatDetails(statType) {
+    const detailedStats = this.statisticsManager.getComprehensiveStats();
+    let modalContent = "";
+
+    switch (statType) {
+      case "totalScore":
+        modalContent = this.getTotalScoreDetails();
+        break;
+      case "accuracy":
+        modalContent = this.getAccuracyDetails();
+        break;
+      case "streak":
+        modalContent = this.getStreakDetails();
+        break;
+      case "dailyRuns":
+        modalContent = this.getDailyRunsDetails();
+        break;
+      case "dailyHistory":
+        modalContent = this.getDailyHistoryDetails();
+        break;
+      case "wrongAnswers":
+        modalContent = this.getWrongAnswersDetails();
+        break;
+      case "levelProgress":
+        modalContent = this.getLevelProgressDetails();
+        break;
+      default:
+        modalContent = "<p>Detalji nisu dostupni za ovu statistiku.</p>";
+    }
+
+    this.createStatsModal(modalContent);
+  }
+
+  /**
+   * Create and show stats modal
+   */
+  createStatsModal(content) {
+    // Remove existing modal if any
+    const existingModal = document.querySelector(".stats-modal");
+    if (existingModal) {
+      existingModal.remove();
+    }
+
+    // Create modal HTML
+    const modal = document.createElement("div");
+    modal.className = "stats-modal";
+    modal.innerHTML = `
+      <div class="stats-modal-content">
+        <div class="stats-modal-header">
+          <h3>📊 Detaljne Statistike</h3>
+          <button class="stats-modal-close" onclick="this.closest('.stats-modal').remove()">✕</button>
+        </div>
+        <div class="stats-modal-body">
+          ${content}
+        </div>
+      </div>
+    `;
+
+    // Add to body
+    document.body.appendChild(modal);
+
+    // Close on backdrop click
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) {
+        modal.remove();
+      }
+    });
+
+    // Close on escape key
+    const handleEscape = (e) => {
+      if (e.key === "Escape") {
+        modal.remove();
+        document.removeEventListener("keydown", handleEscape);
+      }
+    };
+    document.addEventListener("keydown", handleEscape);
+  }
+
+  /**
+   * Get total score details
+   */
+  getTotalScoreDetails() {
+    const avgScore = Math.round(
+      this.stats.totalScore / Math.max(this.stats.gamesPlayed, 1)
+    );
+    const bestLevel = this.getBestScoringLevel();
+
+    return `
+      <h4>🎯 Ukupni Bodovi: <span class="highlight">${this.stats.totalScore}</span></h4>
+      <p><strong>Broj igara:</strong> ${this.stats.gamesPlayed}</p>
+      <p><strong>Prosječni score po igri:</strong> ${avgScore} bodova</p>
+      <p><strong>Najbolji level za score:</strong> Level ${bestLevel.level} (${bestLevel.stars} ⭐)</p>
+      <p><strong>Ukupno pitanja odgovoreno:</strong> ${this.stats.totalQuestions}</p>
+      <p><strong>Ukupno točnih odgovora:</strong> ${this.stats.totalCorrect}</p>
+      
+      <h5>💡 Savjeti za poboljšanje:</h5>
+      <ul>
+        <li>Vježbajte redovito za veći score</li>
+        <li>Fokusirajte se na brzinu i točnost</li>
+        <li>Završite sve levelove s 3 zvjezdice</li>
+      </ul>
+    `;
+  }
+
+  /**
+   * Get accuracy details
+   */
+  getAccuracyDetails() {
+    const overallAccuracy = Math.round(
+      (this.stats.totalCorrect / Math.max(this.stats.totalQuestions, 1)) * 100
+    );
+    const levelAccuracies = this.calculateLevelAccuracies();
+
+    return `
+      <h4>🎯 Prosječna Točnost: <span class="highlight">${overallAccuracy}%</span></h4>
+      <p><strong>Ukupno pitanja:</strong> ${this.stats.totalQuestions}</p>
+      <p><strong>Točnih odgovora:</strong> ${this.stats.totalCorrect}</p>
+      <p><strong>Pogrešnih odgovora:</strong> ${
+        this.stats.totalQuestions - this.stats.totalCorrect
+      }</p>
+      
+      <h5>📈 Točnost po razinama performanse:</h5>
+      <ul>
+        <li><strong>Izvrsno (90%+):</strong> 3 ⭐ - Perfektno poznavanje tablice</li>
+        <li><strong>Vrlo dobro (75-89%):</strong> 2 ⭐ - Dobro poznavanje s manjim greškama</li>
+        <li><strong>Dobro (60-74%):</strong> 1 ⭐ - Osnovno poznavanje, trebate više vježbe</li>
+        <li><strong>Treba poboljšanje (<60%):</strong> 0 ⭐ - Značajno više vježbe potrebno</li>
+      </ul>
+      
+      ${
+        overallAccuracy >= 90
+          ? "<p>🎉 <strong>Odlično!</strong> Vaša točnost je izvrsna!</p>"
+          : overallAccuracy >= 75
+          ? "<p>👍 <strong>Vrlo dobro!</strong> Još malo vježbe za savršenstvo!</p>"
+          : "<p>💪 <strong>Nastavi vježbati!</strong> Svaki dan ćeš biti sve bolji!</p>"
+      }
+    `;
+  }
+
+  /**
+   * Get streak details
+   */
+  getStreakDetails() {
+    return `
+      <h4>🔥 Najbolji Niz: <span class="highlight">${this.stats.bestStreak}</span></h4>
+      <p>Niz predstavlja koliko uzastopnih točnih odgovora ste dali bez greške.</p>
+      
+      <h5>🏆 Streak razine:</h5>
+      <ul>
+        <li><strong>3-5 uzastopno:</strong> Početni streak - Dobro početo! 🌟</li>
+        <li><strong>6-10 uzastopno:</strong> Odličan streak - Izvrsno! ⭐</li>
+        <li><strong>11-15 uzastopno:</strong> Fantastičan streak - Nevjerojan! 🔥</li>
+        <li><strong>16+ uzastopno:</strong> Legendarni streak - Matematički ninja! 🥷</li>
+      </ul>
+      
+      <h5>💡 Savjeti za duže streakove:</h5>
+      <ul>
+        <li>Koncentrirajte se na svako pitanje</li>
+        <li>Ne žurite s odgovorima</li>
+        <li>Vježbajte tablice koje vam slabije idu</li>
+        <li>Koristite dnevni izazov za vježbu</li>
+      </ul>
+    `;
+  }
+
+  /**
+   * Get daily runs details
+   */
+  getDailyRunsDetails() {
+    const dailyStats = this.statisticsManager.getTodayDailyChallengeStats();
+    const today = new Date().toLocaleDateString("hr-HR");
+
+    return `
+      <h4>🚀 Danas Pokretanja: <span class="highlight">${
+        dailyStats.runsToday
+      }</span></h4>
+      <p><strong>Datum:</strong> ${today}</p>
+      <p><strong>Najbolji score danas:</strong> ${
+        dailyStats.bestScore
+      } bodova</p>
+      <p><strong>Ukupno grešaka danas:</strong> ${dailyStats.totalMistakes}</p>
+      <p><strong>Prosječna točnost danas:</strong> ${
+        dailyStats.averageAccuracy
+      }%</p>
+      
+      <h5>📊 Preporučeno:</h5>
+      <ul>
+        <li><strong>Optimalno:</strong> 2-3 dnevna izazova dnevno</li>
+        <li><strong>Za napredak:</strong> Pokušajte poboljšati prethodnji score</li>
+        <li><strong>Za učenje:</strong> Fokus na pitanja koja ste pogriješili</li>
+      </ul>
+      
+      ${
+        dailyStats.runsToday === 0
+          ? "<p>🎯 <strong>Savjet:</strong> Pokrenite dnevni izazov za vježbu miješanih tablica!</p>"
+          : dailyStats.runsToday >= 3
+          ? "<p>🌟 <strong>Odlično!</strong> Već ste dosta vježbali danas!</p>"
+          : "<p>💪 <strong>Nastavi!</strong> Možete pokrenuti još jedan izazov!</p>"
+      }
+    `;
+  }
+
+  /**
+   * Get daily history details
+   */
+  getDailyHistoryDetails() {
+    const allRuns =
+      this.statisticsManager.detailedStats.dailyChallengeRuns || [];
+    const totalRuns = allRuns.length;
+    const avgScore =
+      totalRuns > 0
+        ? Math.round(
+            allRuns.reduce((sum, run) => sum + run.score, 0) / totalRuns
+          )
+        : 0;
+    const bestRun =
+      totalRuns > 0
+        ? allRuns.reduce((best, run) => (run.score > best.score ? run : best))
+        : null;
+
+    return `
+      <h4>📈 Ukupno Pokretanja: <span class="highlight">${totalRuns}</span></h4>
+      <p><strong>Prosječni score:</strong> ${avgScore} bodova</p>
+      ${
+        bestRun
+          ? `<p><strong>Najbolji rezultat:</strong> ${bestRun.score} bodova (${bestRun.accuracy}% točnost)</p>`
+          : ""
+      }
+      
+      <h5>📊 Zadnjih 10 pokretanja:</h5>
+      <ul>
+        ${allRuns
+          .slice(-10)
+          .reverse()
+          .map(
+            (run) => `
+          <li>
+            <strong>${new Date(run.completedTime).toLocaleDateString(
+              "hr-HR"
+            )}:</strong>
+            ${run.score} bodova, ${run.accuracy}% točnost, ${
+              run.mistakes
+            } grešaka
+          </li>
+        `
+          )
+          .join("")}
+      </ul>
+      
+      ${
+        totalRuns === 0
+          ? "<p>🎯 <strong>Savjet:</strong> Pokrenite svoj prvi dnevni izazov!</p>"
+          : totalRuns >= 50
+          ? "<p>🏆 <strong>Nevjerojatno!</strong> Pravi ste veteran dnevnih izazova!</p>"
+          : "<p>🎯 <strong>Nastavi!</strong> Svaki dnevni izazov vas čini boljim!</p>"
+      }
+    `;
+  }
+
+  /**
+   * Get wrong answers details
+   */
+  getWrongAnswersDetails() {
+    const wrongAnswersCount = this.statisticsManager.getTotalUnlearnedCount();
+    const wrongAnswersByLevel = this.getWrongAnswersByLevel();
+
+    return `
+      <h4>📚 Za Vježbanje: <span class="highlight">${wrongAnswersCount}</span> pitanja</h4>
+      <p>Ova pitanja su označena za dodatnu vježbu jer su pogriješena više puta.</p>
+      
+      <h5>📖 Pitanja po levelima:</h5>
+      <ul>
+        ${Object.entries(wrongAnswersByLevel)
+          .map(
+            ([level, questions]) => `
+          <li>
+            <strong>Level ${level}:</strong> ${questions.length} pitanja
+            ${questions
+              .slice(0, 3)
+              .map((q) => `<br>  • ${q.question} = ${q.correctAnswer}`)
+              .join("")}
+            ${
+              questions.length > 3
+                ? `<br>  • ... i još ${questions.length - 3} pitanja`
+                : ""
+            }
+          </li>
+        `
+          )
+          .join("")}
+      </ul>
+      
+      <h5>💡 Kako vježbati:</h5>
+      <ul>
+        <li>Ova pitanja će se češće pojavljivati u igri</li>
+        <li>Kada odgovorite točno, označit će se kao naučena</li>
+        <li>Dnevni izazov miješa pitanja iz svih levelova</li>
+        <li>Redovito vježbanje pomaže zapamtiti teška pitanja</li>
+      </ul>
+    `;
+  }
+
+  /**
+   * Get level progress details
+   */
+  getLevelProgressDetails() {
+    const completedLevels = this.stats.completedLevels.length;
+    const totalStars = Object.values(this.stats.levelStars).reduce(
+      (sum, stars) => sum + stars,
+      0
+    );
+
+    return `
+      <h4>📈 Napredak po Levelima</h4>
+      <p><strong>Završeno:</strong> ${completedLevels}/10 levelova</p>
+      <p><strong>Ukupno zvjezdica:</strong> ${totalStars}/30 ⭐</p>
+      
+      <div class="level-progress-grid">
+        ${Array.from({ length: 10 }, (_, i) => {
+          const level = i + 1;
+          const stars = this.stats.levelStars[level] || 0;
+          const isCompleted =
+            this.stats.completedLevels.includes(level) || stars > 0;
+
+          return `
+            <div class="level-progress-item">
+              <h5>Level ${level}</h5>
+              <div class="level-progress-stars">
+                ${Array.from({ length: 3 }, (_, starIndex) =>
+                  starIndex < stars ? "⭐" : "☆"
+                ).join("")}
+              </div>
+              <p>${isCompleted ? "Završen" : "Nije završen"}</p>
+            </div>
+          `;
+        }).join("")}
+      </div>
+      
+      <h5>🎯 Ciljevi:</h5>
+      <ul>
+        <li>Završite sve levelove (10/10)</li>
+        <li>Osvojite sve zvjezdice (30/30)</li>
+        <li>Postanite pravi matematički ninja! 🥷</li>
+      </ul>
+    `;
+  }
+
+  /**
+   * Get best scoring level
+   */
+  getBestScoringLevel() {
+    let bestLevel = { level: 1, stars: 0 };
+    Object.entries(this.stats.levelStars).forEach(([level, stars]) => {
+      if (stars > bestLevel.stars) {
+        bestLevel = { level: parseInt(level), stars };
+      }
+    });
+    return bestLevel;
+  }
+
+  /**
+   * Get wrong answers grouped by level
+   */
+  getWrongAnswersByLevel() {
+    const wrongAnswers = {};
+    Object.entries(this.statisticsManager.wrongAnswers).forEach(
+      ([levelKey, levelWrong]) => {
+        const level = levelKey.replace("level_", "");
+        const unlearned = levelWrong.filter((w) => !w.learned);
+        if (unlearned.length > 0) {
+          wrongAnswers[level] = unlearned;
+        }
+      }
+    );
+    return wrongAnswers;
   }
 }
 

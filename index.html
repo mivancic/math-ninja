@@ -229,56 +229,162 @@
 
       <!-- Statistike -->
       <div class="stats-screen">
-        <h2>Moje Statistike</h2>
-        <div class="stats-grid">
-          <!-- Basic Stats -->
-          <div class="stat-card">
-            <h3>Ukupni Bodovi</h3>
-            <p id="totalScore">0</p>
-          </div>
-          <div class="stat-card">
-            <h3>Prosječna Točnost</h3>
-            <p id="avgAccuracy">0%</p>
-          </div>
-          <div class="stat-card">
-            <h3>Najbolji Niz</h3>
-            <p id="bestStreak">0</p>
-          </div>
-          <div class="stat-card">
-            <h3>Dana Vježbanja</h3>
-            <p id="daysPlayed">0</p>
+        <h2>📊 Moje Statistike</h2>
+
+        <div class="stats-sections">
+          <!-- Osnovne Statistike -->
+          <div class="stats-section">
+            <div
+              class="stats-section-header"
+              onclick="mathNinja.toggleStatsSection('basic')"
+            >
+              <h3>🎯 Osnovne Statistike</h3>
+              <span class="stats-section-toggle" id="basicToggle">▼</span>
+            </div>
+            <div class="stats-section-content" id="basicContent">
+              <div class="stats-grid">
+                <div
+                  class="stat-card clickable"
+                  onclick="event.stopPropagation(); mathNinja.showStatDetails('totalScore')"
+                >
+                  <h4>Ukupni Bodovi</h4>
+                  <p id="totalScore">0</p>
+                  <small>Kliknite za detalje</small>
+                </div>
+                <div
+                  class="stat-card clickable"
+                  onclick="event.stopPropagation(); mathNinja.showStatDetails('accuracy')"
+                >
+                  <h4>Prosječna Točnost</h4>
+                  <p id="avgAccuracy">0%</p>
+                  <small>Kliknite za detalje</small>
+                </div>
+                <div
+                  class="stat-card clickable"
+                  onclick="event.stopPropagation(); mathNinja.showStatDetails('streak')"
+                >
+                  <h4>Najbolji Niz</h4>
+                  <p id="bestStreak">0</p>
+                  <small>Kliknite za detalje</small>
+                </div>
+                <div class="stat-card">
+                  <h4>Dana Vježbanja</h4>
+                  <p id="daysPlayed">0</p>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <!-- Enhanced Stats -->
-          <div class="stat-card">
-            <h3>📅 Dnevni Streak</h3>
-            <p id="dailyChallengeStreak">0</p>
+          <!-- Dnevni Izazov -->
+          <div class="stats-section">
+            <div
+              class="stats-section-header"
+              onclick="mathNinja.toggleStatsSection('daily')"
+            >
+              <h3>🗓️ Dnevni Izazov</h3>
+              <span class="stats-section-toggle" id="dailyToggle">▼</span>
+            </div>
+            <div class="stats-section-content" id="dailyContent">
+              <div class="stats-grid">
+                <div class="stat-card">
+                  <h4>📅 Trenutni Streak</h4>
+                  <p id="dailyChallengeStreak">0</p>
+                </div>
+                <div class="stat-card">
+                  <h4>🔥 Najduži Streak</h4>
+                  <p id="longestDailyStreak">0</p>
+                </div>
+                <div
+                  class="stat-card clickable"
+                  onclick="event.stopPropagation(); mathNinja.showStatDetails('dailyRuns')"
+                >
+                  <h4>🚀 Danas Pokretanja</h4>
+                  <p id="todayLaunches">0</p>
+                  <small>Kliknite za detalje</small>
+                </div>
+                <div
+                  class="stat-card clickable"
+                  onclick="event.stopPropagation(); mathNinja.showStatDetails('dailyHistory')"
+                >
+                  <h4>📈 Ukupno Pokretanja</h4>
+                  <p id="totalDailyRuns">0</p>
+                  <small>Kliknite za povijest</small>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="stat-card">
-            <h3>🔥 Najduži Dnevni Streak</h3>
-            <p id="longestDailyStreak">0</p>
+
+          <!-- Vrijeme Igranja -->
+          <div class="stats-section">
+            <div
+              class="stats-section-header"
+              onclick="mathNinja.toggleStatsSection('time')"
+            >
+              <h3>⏱️ Vrijeme Igranja</h3>
+              <span class="stats-section-toggle" id="timeToggle">▼</span>
+            </div>
+            <div class="stats-section-content" id="timeContent">
+              <div class="stats-grid">
+                <div class="stat-card">
+                  <h4>⏱️ Ukupno Vremena</h4>
+                  <p id="totalPlaytime">0 min</p>
+                </div>
+                <div class="stat-card">
+                  <h4>🕐 Danas Igranja</h4>
+                  <p id="todayPlaytime">0 min</p>
+                </div>
+                <div class="stat-card">
+                  <h4>📊 Prosječna Sesija</h4>
+                  <p id="averageSession">0 min</p>
+                </div>
+                <div class="stat-card">
+                  <h4>🎮 Broj Sesija</h4>
+                  <p id="totalSessions">0</p>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="stat-card">
-            <h3>⏱️ Ukupno Vremena</h3>
-            <p id="totalPlaytime">0 min</p>
-          </div>
-          <div class="stat-card">
-            <h3>⏱️ Danas Igranja</h3>
-            <p id="todayPlaytime">0 min</p>
-          </div>
-          <div class="stat-card">
-            <h3>🚀 Danas Pokretanja</h3>
-            <p id="todayLaunches">0</p>
-          </div>
-          <div class="stat-card">
-            <h3>📊 Prosječna Sesija</h3>
-            <p id="averageSession">0 min</p>
-          </div>
-          <div class="stat-card">
-            <h3>📚 Za Vježbanje</h3>
-            <p id="wrongAnswersCount">0</p>
+
+          <!-- Učenje i Napredak -->
+          <div class="stats-section">
+            <div
+              class="stats-section-header"
+              onclick="mathNinja.toggleStatsSection('learning')"
+            >
+              <h3>📚 Učenje i Napredak</h3>
+              <span class="stats-section-toggle" id="learningToggle">▼</span>
+            </div>
+            <div class="stats-section-content" id="learningContent">
+              <div class="stats-grid">
+                <div
+                  class="stat-card clickable"
+                  onclick="event.stopPropagation(); mathNinja.showStatDetails('wrongAnswers')"
+                >
+                  <h4>📚 Za Vježbanje</h4>
+                  <p id="wrongAnswersCount">0</p>
+                  <small>Kliknite za popis</small>
+                </div>
+                <div class="stat-card">
+                  <h4>✅ Završeni Levelovi</h4>
+                  <p id="completedLevels">0/10</p>
+                </div>
+                <div class="stat-card">
+                  <h4>⭐ Ukupno Zvjezdica</h4>
+                  <p id="totalStars">0/30</p>
+                </div>
+                <div
+                  class="stat-card clickable"
+                  onclick="event.stopPropagation(); mathNinja.showStatDetails('levelProgress')"
+                >
+                  <h4>📈 Napredak po Levelima</h4>
+                  <p>Detalji</p>
+                  <small>Kliknite za prikaz</small>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
+
         <button class="back-button" onclick="mathNinja.showMenu()">
           Natrag
         </button>
@@ -457,5 +563,8 @@
 
     <!-- Scripts -->
     <script type="module" src="assets/js/app.js"></script>
+
+    <!-- Stats Modal Placeholder -->
+    <div id="statsModalContainer"></div>
   </body>
 </html>
