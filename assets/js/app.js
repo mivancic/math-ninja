@@ -1500,7 +1500,6 @@ class MathNinjaApp {
     const overallAccuracy = Math.round(
       (this.stats.totalCorrect / Math.max(this.stats.totalQuestions, 1)) * 100
     );
-    const levelAccuracies = this.calculateLevelAccuracies();
 
     return `
       <h4>🎯 Prosječna Točnost: <span class="highlight">${overallAccuracy}%</span></h4>
