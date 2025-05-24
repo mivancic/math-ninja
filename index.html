@@ -165,6 +165,40 @@
       <!-- Odabir razine -->
       <div class="level-select-screen" style="display: none">
         <h2>Odaberi Tablicu Množenja</h2>
+
+        <!-- Progress Indicator for Level Select -->
+        <div
+          class="progress-indicator level-select-progress"
+          id="levelSelectProgressIndicator"
+        >
+          <div class="progress-header">
+            <h3>Napredak</h3>
+            <span class="progress-fraction" id="levelSelectProgressFraction"
+              >0/10</span
+            >
+          </div>
+          <div class="progress-bar-container">
+            <div class="progress-bar" id="levelSelectProgressBar">
+              <div class="progress-bar-fill" style="width: 0%"></div>
+              <div class="progress-bar-shimmer"></div>
+            </div>
+            <span class="progress-percentage" id="levelSelectProgressPercentage"
+              >0%</span
+            >
+          </div>
+          <div class="star-progress" id="levelSelectStarProgress">
+            <div class="star-item">
+              <span class="star-icon" data-index="0">☆</span>
+            </div>
+            <div class="star-item">
+              <span class="star-icon" data-index="1">☆</span>
+            </div>
+            <div class="star-item">
+              <span class="star-icon" data-index="2">☆</span>
+            </div>
+          </div>
+        </div>
+
         <div class="level-selector" id="levelSelector"></div>
         <button class="back-button" onclick="mathNinja.showMenu()">
           Natrag
@@ -358,7 +392,9 @@
             <span id="finalStreak">0</span>
           </div>
         </div>
-        <div class="level-complete-actions">
+
+        <!-- Regular Level Actions -->
+        <div class="level-complete-actions" id="regularLevelActions">
           <button
             class="menu-button primary"
             id="nextLevelBtn"
@@ -380,6 +416,37 @@
             style="display: none"
           >
             Ponovi Level
+          </button>
+          <button class="menu-button" onclick="mathNinja.showMenu()">
+            Glavni Izbornik
+          </button>
+        </div>
+
+        <!-- Daily Challenge Actions -->
+        <div
+          class="daily-challenge-actions"
+          id="dailyChallengeActions"
+          style="display: none"
+        >
+          <div class="daily-challenge-stats" id="dailyChallengeStats">
+            <div class="daily-stat-item">
+              <span class="daily-stat-label">Danas pokrenuto:</span>
+              <span id="dailyRunsCount">1</span>
+            </div>
+            <div class="daily-stat-item">
+              <span class="daily-stat-label">Najbolji score:</span>
+              <span id="dailyBestScore">0</span>
+            </div>
+            <div class="daily-stat-item">
+              <span class="daily-stat-label">Ukupno grešaka:</span>
+              <span id="dailyTotalMistakes">0</span>
+            </div>
+          </div>
+          <button
+            class="menu-button primary"
+            onclick="mathNinja.startNewDailyChallenge()"
+          >
+            Pokreni Novi Izazov
           </button>
           <button class="menu-button" onclick="mathNinja.showMenu()">
             Glavni Izbornik

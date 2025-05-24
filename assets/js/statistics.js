@@ -61,6 +61,9 @@ export class StatisticsManager {
       sessionCount: 0,
       averageSessionLength: 0,
       createdDate: new Date().toISOString(),
+      // Enhanced Daily Challenge Statistics
+      dailyChallengeRuns: [], // array of { date, runNumber, score, mistakes, accuracy, completedTime }
+      dailyChallengeToday: 0, // number of runs today
     };
   }
 
@@ -115,6 +118,9 @@ export class StatisticsManager {
    */
   startSession() {
     this.currentSessionStart = Date.now();
+
+    // Reset daily challenge runs if new day
+    this.resetDailyRuns();
 
     // Track daily launch
     const today = new Date().toDateString();
@@ -330,17 +336,18 @@ export class StatisticsManager {
   }
 
   /**
-   * Mark a wrong answer as learned
+   * Mark a wrong answer as learned (marks in ALL levels where it exists)
    */
   markAsLearned(level, num1, num2) {
-    const levelKey = `level_${level}`;
+    let markedCount = 0;
 
-    if (this.wrongAnswers[levelKey]) {
+    // Mark as learned in ALL levels where this question exists
+    Object.keys(this.wrongAnswers).forEach((levelKey) => {
       const wrongAnswer = this.wrongAnswers[levelKey].find(
         (w) => w.num1 === num1 && w.num2 === num2
       );
 
-      if (wrongAnswer) {
+      if (wrongAnswer && !wrongAnswer.learned) {
         wrongAnswer.learned = true;
         wrongAnswer.retryCount++;
         wrongAnswer.correctAttempts = (wrongAnswer.correctAttempts || 0) + 1;
@@ -351,39 +358,63 @@ export class StatisticsManager {
           (wrongAnswer.correctAttempts / wrongAnswer.totalAttempts) * 100
         );
 
-        this.saveWrongAnswers();
+        markedCount++;
         console.log(
-          `✅ Marked as learned: ${num1} × ${num2} (accuracy: ${accuracy}%, attempts: ${wrongAnswer.totalAttempts})`
+          `✅ Marked as learned in ${levelKey}: ${num1} × ${num2} (accuracy: ${accuracy}%, attempts: ${wrongAnswer.totalAttempts})`
         );
       }
+    });
+
+    if (markedCount > 0) {
+      this.saveWrongAnswers();
+      console.log(
+        `📚 Total marked as learned: ${markedCount} instances of ${num1} × ${num2}`
+      );
     }
   }
 
   /**
-   * Get unlearned wrong answers for a level
+   * Get unlearned wrong answers for a level (includes level_0 daily challenge questions for specific table)
    */
   getUnlearnedWrongAnswers(level) {
     const levelKey = `level_${level}`;
+    let unlearnedAnswers = [];
 
-    if (!this.wrongAnswers[levelKey]) {
-      return [];
+    // Get unlearned wrong answers for the specific level
+    if (this.wrongAnswers[levelKey]) {
+      unlearnedAnswers = this.wrongAnswers[levelKey]
+        .filter((w) => !w.learned)
+        .sort((a, b) => b.timestamp - a.timestamp); // Most recent first
     }
 
-    return this.wrongAnswers[levelKey]
-      .filter((w) => !w.learned)
-      .sort((a, b) => b.timestamp - a.timestamp); // Most recent first
+    // For non-daily challenge levels, also include level_0 questions that match this table
+    if (level !== 0 && this.wrongAnswers["level_0"]) {
+      const dailyChallengeQuestions = this.wrongAnswers["level_0"]
+        .filter((w) => !w.learned && (w.num1 === level || w.num2 === level))
+        .sort((a, b) => b.timestamp - a.timestamp);
+
+      unlearnedAnswers = [...unlearnedAnswers, ...dailyChallengeQuestions];
+    }
+
+    return unlearnedAnswers;
   }
 
   /**
-   * Get all wrong answers for daily challenge mix
+   * Get all wrong answers for daily challenge mix (from all levels 0-10)
    */
   getAllUnlearnedWrongAnswers() {
     const allWrong = [];
 
-    Object.keys(this.wrongAnswers).forEach((levelKey) => {
-      const levelWrong = this.wrongAnswers[levelKey].filter((w) => !w.learned);
-      allWrong.push(...levelWrong);
-    });
+    // Include unlearned wrong answers from all levels (0-10) for daily challenge
+    for (let level = 0; level <= 10; level++) {
+      const levelKey = `level_${level}`;
+      if (this.wrongAnswers[levelKey]) {
+        const levelWrong = this.wrongAnswers[levelKey].filter(
+          (w) => !w.learned
+        );
+        allWrong.push(...levelWrong);
+      }
+    }
 
     return allWrong.sort((a, b) => b.timestamp - a.timestamp);
   }
@@ -463,6 +494,101 @@ export class StatisticsManager {
       total += levelWrong.filter((w) => !w.learned).length;
     });
     return total;
+  }
+
+  /**
+   * Track daily challenge run completion
+   */
+  trackDailyChallengeRun(gameStats) {
+    const today = new Date().toDateString();
+
+    // Increment today's run count
+    this.detailedStats.dailyChallengeToday++;
+
+    // Calculate mistakes count
+    const mistakes = gameStats.questionsAnswered - gameStats.correctAnswers;
+
+    // Create run record
+    const runRecord = {
+      date: today,
+      runNumber: this.detailedStats.dailyChallengeToday,
+      score: gameStats.score,
+      mistakes: mistakes,
+      accuracy: gameStats.accuracy,
+      completedTime: new Date().toISOString(),
+      questionsAnswered: gameStats.questionsAnswered,
+      correctAnswers: gameStats.correctAnswers,
+      maxStreak: gameStats.maxStreak,
+    };
+
+    // Add to runs history
+    this.detailedStats.dailyChallengeRuns.push(runRecord);
+
+    // Limit history to last 100 runs to prevent excessive storage
+    if (this.detailedStats.dailyChallengeRuns.length > 100) {
+      this.detailedStats.dailyChallengeRuns =
+        this.detailedStats.dailyChallengeRuns
+          .sort((a, b) => new Date(b.completedTime) - new Date(a.completedTime))
+          .slice(0, 100);
+    }
+
+    this.saveDetailedStats();
+
+    console.log(
+      `📊 Daily challenge run tracked: ${runRecord.runNumber} today, Score: ${runRecord.score}, Mistakes: ${runRecord.mistakes}`
+    );
+
+    return runRecord;
+  }
+
+  /**
+   * Get today's daily challenge statistics
+   */
+  getTodayDailyChallengeStats() {
+    const today = new Date().toDateString();
+    const todayRuns = this.detailedStats.dailyChallengeRuns.filter(
+      (run) => run.date === today
+    );
+
+    if (todayRuns.length === 0) {
+      return {
+        runsToday: 0,
+        bestScore: 0,
+        totalMistakes: 0,
+        averageAccuracy: 0,
+      };
+    }
+
+    const bestScore = Math.max(...todayRuns.map((run) => run.score));
+    const totalMistakes = todayRuns.reduce((sum, run) => sum + run.mistakes, 0);
+    const averageAccuracy = Math.round(
+      todayRuns.reduce((sum, run) => sum + run.accuracy, 0) / todayRuns.length
+    );
+
+    return {
+      runsToday: todayRuns.length,
+      bestScore,
+      totalMistakes,
+      averageAccuracy,
+    };
+  }
+
+  /**
+   * Reset daily challenge run counter (called at start of new day)
+   */
+  resetDailyRuns() {
+    const today = new Date().toDateString();
+    const lastRunDate =
+      this.detailedStats.dailyChallengeRuns.length > 0
+        ? this.detailedStats.dailyChallengeRuns[
+            this.detailedStats.dailyChallengeRuns.length - 1
+          ].date
+        : null;
+
+    if (lastRunDate !== today) {
+      this.detailedStats.dailyChallengeToday = 0;
+      this.saveDetailedStats();
+    }
   }
 
   /**

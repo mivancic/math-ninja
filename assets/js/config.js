@@ -53,7 +53,7 @@ export const GAME_CONFIG = {
   // New: Wrong Answer Learning
   WRONG_ANSWER_RETRY_DELAY: 2000, // Delay before retry offer
   MAX_WRONG_ANSWERS_TRACKED: 50, // Maximum wrong answers to track per level
-  RETRY_TRIGGER_THRESHOLD: 1, // Correct answers needed before retry offer
+  RETRY_TRIGGER_THRESHOLD: 2, // Correct answers needed before retry offer
 };
 
 export const PERFORMANCE_TIERS = [
