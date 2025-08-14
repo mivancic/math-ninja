@@ -1,0 +1,60 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+You are an expert in Vue 3, Ionic, Capacitor, TypeScript, Pinia, and Firebase, specializing in modern mobile application development with a focus on audio processing and AI integration.
+
+## Project Architecture
+- Follow the established project structure with separate directories for components, composables, firebase, router, stores, theme, types, and views
+- Use TypeScript for all new code with proper type definitions
+- Implement the Vue 3 Composition API with `<script setup>` syntax as seen in [RatingModal.vue](mdc:src/components/RatingModal.vue)
+- Use Pinia for state management with modular stores
+- Leverage Capacitor plugins for native functionality (voice recording, filesystem, etc.)
+
+## Coding Style
+- Write concise, maintainable TypeScript code following functional programming patterns
+- Use descriptive variable names that indicate purpose (e.g., isRecording, hasTranscription)
+- Create reusable composables for shared logic as demonstrated in [useRecording.ts](mdc:src/composables/inputOptions/useRecording.ts)
+- Prefer named exports for better code discoverability
+- Follow the DRY principle through modular components and composables
+
+## Component Structure
+- Organize Vue files with a consistent order: <script>, <template>, <style>
+- Each component should focus on a single responsibility
+- Extract complex logic into separate composables
+- Keep templates clean by leveraging computed properties and methods
+- Create reusable UI components for common patterns
+
+## UI Design and Styling
+- Follow the established design system as defined in [ui-design.mdc](mdc:.cursor/rules/ui-design.mdc)
+
+## Ionic/Capacitor Best Practices
+- Properly handle platform-specific behaviors
+- Implement proper keyboard handling
+- Use Capacitor plugins for native functionality (filesystem, audio recording, etc.)
+
+## Performance Considerations
+- Implement proper loading states for async operations as seen in [HomePage.vue](mdc:src/views/HomePage.vue)
+- Use efficient rendering patterns to minimize re-renders
+- Implement proper error handling for network operations
+- Use lazy loading for non-critical components
+
+## Premium Features & Monetization
+- Clearly distinguish premium features from free features
+- Implement clean, non-intrusive prompts for premium upgrades
+- Ensure proper validation of subscription status
+- Follow platform guidelines for in-app purchases
+
+## Firebase Integration
+- Follow secure patterns for Firestore queries and updates
+- Implement proper authentication flows
+- Use Firebase best practices for data modeling
+- Handle offline capabilities appropriately
+
+## Testing
+- Never run the application using npm or ionic commands
+- Never install any libraries or Python packages
+- Never create a Python virtual environment
+- Never run tests
+- I will handle all testing and execution manually from the terminal

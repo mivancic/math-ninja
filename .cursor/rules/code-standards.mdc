@@ -1,0 +1,67 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Code Standards
+
+These guidelines outline our fundamental coding practices and workflow preferences. They emphasize clarity, reusability, controlled changes, and thorough documentation to help maintain a consistent, high-quality codebase.
+
+## Coding Pattern Preferences
+
+### Simplicity and Clarity
+- Choose the simplest solution that meets requirements  
+- Favor readability over cleverness  
+- Avoid over-engineering and unnecessary complexity  
+- Use descriptive names for variables and functions  
+- Ask clarifying questions if requirements are unclear  
+
+### Code Reusability
+- Check for existing functions or modules to avoid duplication  
+- Extract repeated logic into reusable components  
+- Apply DRY (Don’t Repeat Yourself) principles  
+- Refactor and reuse code whenever possible  
+
+### Controlled Changes and Clean Code
+- Only modify what’s necessary for the task  
+- Consider existing solutions before introducing new patterns  
+- Remove outdated or duplicate implementations  
+- Maintain consistent style, naming conventions, and file structures  
+- Keep files at manageable sizes; refactor large files  
+- Eliminate dead code and unnecessary comments  
+- Never delete data or code without explicit confirmation  
+
+### Data and Configuration Integrity
+- Use mock data for testing only when requested  
+- Never overwrite configuration files (e.g., `.env`) without explicit approval  
+- Protect sensitive data with environment variables and secure storage  
+
+### User Interface (UI)
+- Do not change the UI unless explicitly instructed  
+- Test and validate all UI changes before finalizing  
+- When creating new UI components, ensure they align with the existing design and reuse existing elements where possible
+
+## Coding Workflow Preferences
+
+### Task Focus and Impact Minimization
+- Limit changes to areas directly related to the task  
+- Check for potential side effects on other parts of the code  
+- Maintain backward compatibility in shared components  
+
+## Additional Guidelines
+
+### Security and Error Handling
+- Validate inputs and handle errors gracefully  
+- Apply the principle of least privilege  
+- Manage exceptions at the appropriate level  
+
+### Performance Considerations
+- Avoid premature optimization; address actual bottlenecks  
+- Use profiling tools to identify performance issues  
+- Employ lazy loading or similar strategies  
+- Prevent memory leaks and excessive resource usage  
+
+### Comments and Documentation
+- Write all code comments in English  
+- Clarify complex logic, functions or context 
+

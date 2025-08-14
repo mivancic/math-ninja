@@ -1,0 +1,31 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# MCP Tools Usage Guidelines
+
+While the Memory Bank provides essential project context, these MCP tools offer additional capabilities for gathering, analyzing, and refining information. Each tool has a specialized purpose, and I must use them responsibly according to the guidelines below.
+
+## Sequential Thinking
+- Use **Sequential Thinking MCP** for debugging, troubleshooting, complex problem-solving, and in-depth project planning.  
+- Trigger only when there is new progress or significant new information. Avoid unnecessary or recursive calls.
+
+## Information Gathering (Perplexity)
+- **Perplexity MCP** are for researching documentation, exploring user issues, or finding potential solutions.  
+- Use Perplexity MCP for more complex or in-depth queries.  
+- Combine with **Sequential Thinking MCP** to refine results or synthesize insights.  
+- Always prioritize concise, reliable sources.
+
+## Browser Tools
+- **Browser Tools MCP** requires explicit user consent and a running Chromium browser.
+- When I ask you to check something, assume that both the application and MPC are already running, and just execute the necessary tools.
+- Do not use `npm run dev`
+- Prompt the user to confirm enabling Browser Tools MCP if web-based actions or verifications are needed.  
+- Do not invoke Browser Tools MCP automatically without user instruction.
+
+## GitHub MCP
+- Always run `git remote -v` before using GitHub MCP to confirm the repository state.  
+- Use **GitHub MCP** to review recent commits, pull requests, and repository changes for context.  
+- Refer to commit lists and messages to stay informed on the latest project updates.  
+- Engage GitHub MCP whenever performing **update memory bank** to gather and record relevant historical changes.

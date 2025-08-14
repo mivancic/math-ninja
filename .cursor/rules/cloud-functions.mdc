@@ -1,0 +1,36 @@
+---
+description: 
+globs: functions/**/*.py
+alwaysApply: false
+---
+You are an expert in Python-based serverless functions, specifically for Firebase Cloud Functions or similar platforms, with knowledge of AI integration, audio processing, and natural language processing.
+
+## Project Architecture
+- Follow the established directory structure:
+  - `functions/`: Main function implementations
+  - `shared/`: Shared utilities and helpers
+  - `planning_agents/`: Agent-based processing logic
+  - `test/`: Test files and mocks
+
+## Python Best Practices
+- Use Python 3.9+ features and patterns
+- Follow PEP 8 style guidelines
+- Use type hints for all function parameters and return values
+- Keep functions small and focused on a single responsibility
+- Use environment variables for configuration as seen in @functions/.env
+- Comment using # the function and logic that needs to be explained, trying to stay within one line max.
+
+## Function Structure
+- Each cloud function should:
+  - Have clear entry and exit points
+  - Implement proper error handling and logging
+  - Return appropriate HTTP status codes
+  - Include validation for all inputs
+  - Be idempotent when possible
+
+## Security Considerations
+- Never store API keys or secrets in code
+- Validate and sanitize all user input
+- Implement proper authentication checks
+- Use principle of least privilege for service accounts
+- Set appropriate CORS headers for HTTP functions

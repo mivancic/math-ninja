@@ -1,0 +1,103 @@
+---
+description: When we working on design and implementation of UI and UX elements
+globs: 
+alwaysApply: false
+---
+## Core Design Philosophy
+- Create a clean, modern interface optimized for mobile devices
+- Provide clear visual feedback for user actions
+- Use consistent spacing, colors, and component styling throughout the app
+- Implement subtle animations that enhance the user experience without affecting performance
+
+## Color System
+- Use Ionic color variables as the foundation: 
+  - `--ion-color-primary`: Main orange/brand color
+  - `--ion-color-primary-shade`: Darker variant for active states
+  - `--ion-color-primary-tint`: Lighter variant for hover states
+  - `--ion-color-warning`: Yellow accent for ratings and important elements
+  - `--ion-color-danger`: Red accent (#ff4961) for recording indicators and alerts as seen in [RecordingModal.vue](mdc:src/components/RecordingModal.vue)
+  - `--ion-color-medium`: Gray for secondary text and inactive elements
+
+- Implement custom color variables for special elements:
+  - `--app-color-orange-gradient-start` to `--app-color-orange-gradient-end` for gradient buttons as implemented in [PaywallView.vue](mdc:src/views/PaywallView.vue)
+  - `--app-color-light-orange`: (rgba(255, 133, 51, 0.1)) for button backgrounds and badges as seen in [RecordingModal.vue](mdc:src/components/RecordingModal.vue)
+
+## Buttons
+- Primary buttons:
+  - Gradient background using `linear-gradient(135deg, var(--app-color-orange-gradient-start), var(--app-color-orange-gradient-end))` as shown in [PaywallView.vue](mdc:src/views/PaywallView.vue)
+  - 32px border-radius
+  - No text transform (text-transform: none)
+  - 16-17px font size with 600 weight
+  - Box-shadow: none (override Ionic default)
+  - Padding: 16px vertical, 32px horizontal
+
+- Action buttons (like record):
+  - Circular (--border-radius: 50%) as implemented in [RecordingModal.vue](mdc:src/components/RecordingModal.vue)
+  - Fixed dimensions (70px x 70px)
+  - Drop shadow (0 4px 10px rgba(251, 135, 24, 0.3))
+  - Clear icon (24px font size)
+  - State-based styling (different colors for active/recording state)
+
+- Compact/utility buttons:
+  - Height: 32px
+  - Font size: 14px
+  - Font weight: 500
+  - Text transform: none
+  - Semi-transparent background (rgba(255, 133, 51, 0.1)) as seen in [RecordingModal.vue](mdc:src/components/RecordingModal.vue)
+  - Border-radius: 16px
+
+## Modals
+- Clean white background (--background: white) as implemented in [RatingModal.vue](mdc:src/components/RatingModal.vue)
+- Standard breakpoints [0, 1] for sheet-style modals
+- Content padding using ion-padding utility class
+- Well-structured content with clear visual hierarchy
+- Proper header spacing (margin-bottom: 8px)
+
+## Cards and Content Containers
+- White backgrounds
+- Border-radius: 16-20px
+- Subtle drop shadows (0 4px 12px rgba(0, 0, 0, 0.05)) as shown in [PaywallView.vue](mdc:src/views/PaywallView.vue)
+- Consistent internal padding (16px)
+- Flexbox layouts with proper alignment and spacing
+
+## Typography
+- Clean hierarchical typography:
+  - Headings: No margin, line-height: 1, sized appropriately for context as implemented in [RecordingModal.vue](mdc:src/components/RecordingModal.vue)
+  - Body text: 14-16px for normal content
+  - Button text: 14-17px depending on button importance
+  - Utility text: 14px with 500 font weight
+
+## Animation and Transitions
+- Subtle, purposeful animations:
+  - Transitions: 0.3s ease for state changes as seen in [RecordingModal.vue](mdc:src/components/RecordingModal.vue)
+  - Pulse animation for recording indicator (1.5s ease-in-out infinite)
+  - Define keyframes with appropriate transform and opacity changes
+  - Use animations for state feedback (recording, loading, etc.)
+
+## Icons
+- Use Ionicons from the Ionic framework as demonstrated in [RatingModal.vue](mdc:src/components/RatingModal.vue)
+- Consistent sizing based on context:
+  - 16px for compact buttons and indicators
+  - 24px for standard action buttons
+  - Custom sizing for special cases (like 32px for star rating)
+- Proper alignment with text (margin-right: 4-8px)
+
+## Responsive Layout
+- Flexbox-based layouts for alignment and spacing
+- Proper gap usage (8px standard spacing) as implemented in [RecordingModal.vue](mdc:src/components/RecordingModal.vue)
+- Mobile-first approach with portrait orientation lock
+- Touch-friendly target sizes (minimum 44px for touch targets)
+
+## Loading & Empty States
+- Centered content with clear visual indicators
+- Animation for loading states
+- Helpful messaging that guides the user
+- Loading spinners with appropriate sizing (48px) as shown in [PaywallView.vue](mdc:src/views/PaywallView.vue)
+
+## Implementation Best Practices
+- Use CSS variables for all colors and theme values
+- Apply global styles through theme/global.css
+- Component-specific styles should be scoped to the component
+- Use CSS classes with meaningful names that indicate purpose
+- Leverage Ionic's CSS utilities for common patterns
+- Apply consistent spacing throughout the application
