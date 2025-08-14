@@ -23,16 +23,19 @@ export class RetryChallengeSystem {
    * Track a wrong answer in statistics only (no longer used for retry queue)
    */
   trackWrongAnswer(level, question, wrongAnswer, correctAnswer) {
-    // Add to statistics tracking only
+    // Add to statistics tracking only with operation
     this.statisticsManager.trackWrongAnswer(
       level,
       question,
       wrongAnswer,
-      correctAnswer
+      correctAnswer,
+      question.operation
     );
 
     console.log(
-      `📊 Wrong answer tracked in statistics: ${question.num1} × ${question.num2}`
+      `📊 Wrong answer tracked in statistics: ${
+        question.question || `${question.num1} × ${question.num2}`
+      }`
     );
   }
 
@@ -65,22 +68,48 @@ export class RetryChallengeSystem {
     const retryData =
       currentSessionWrongAnswers[currentSessionWrongAnswers.length - 1];
 
-    console.log(
-      `🔄 Offering retry for: ${retryData.num1} × ${retryData.num2} (${currentSessionWrongAnswers.length} available)`
-    );
+    if (retryData && retryData.num1 != null && retryData.num2 != null) {
+      console.log(
+        `🔄 Offering retry for: ${retryData.num1} × ${retryData.num2} (${currentSessionWrongAnswers.length} available)`
+      );
+    } else {
+      console.log(`🔄 Offering retry for a previous question`);
+    }
 
     // Convert to expected format
+    // Build formatted data with safe fallbacks, and reconstruct for division
     const formattedRetryData = {
-      level: this.gameEngine?.currentLevel || 1, // Add level information
+      level: this.gameEngine?.currentLevel || 1,
       question: {
         num1: retryData.num1,
         num2: retryData.num2,
         correctAnswer: retryData.correctAnswer,
+        operation: retryData.operation,
+        dividend: retryData.dividend,
+        divisor: retryData.divisor,
+        question: retryData.question, // Display question string
       },
       wrongAnswer: retryData.wrongAnswer,
       timestamp: retryData.timestamp,
       attempts: 0,
     };
+
+    // If num1/num2 were not present (e.g., earlier bug) but we have division parts on the currentQuestion
+    if (
+      (formattedRetryData.question.num1 == null ||
+        formattedRetryData.question.num2 == null) &&
+      this.gameEngine?.currentQuestionData
+    ) {
+      const qd = this.gameEngine.currentQuestionData;
+      if (qd.num1 != null && qd.num2 != null) {
+        formattedRetryData.question.num1 = qd.num1;
+        formattedRetryData.question.num2 = qd.num2;
+      } else if (qd.dividend != null && qd.divisor != null) {
+        // Reconstruct divisor × quotient for division
+        formattedRetryData.question.num1 = qd.divisor;
+        formattedRetryData.question.num2 = Math.round(qd.dividend / qd.divisor);
+      }
+    }
 
     // Show retry challenge notification
     this.showRetryNotification(formattedRetryData);
@@ -92,10 +121,25 @@ export class RetryChallengeSystem {
   showRetryNotification(retryData) {
     const notification = document.createElement("div");
     notification.className = "retry-notification";
+    const isDivision =
+      retryData.question.operation === GAME_CONFIG.OPERATIONS.DIVISION &&
+      Number.isFinite(retryData.question.dividend) &&
+      Number.isFinite(retryData.question.divisor);
+
+    let taskText;
+    if (isDivision) {
+      taskText = `${retryData.question.dividend} ÷ ${retryData.question.divisor}`;
+    } else if (retryData.question.question) {
+      // Use the formatted question text for addition/subtraction/other operations
+      taskText = retryData.question.question;
+    } else {
+      // Fallback to multiplication format
+      taskText = `${retryData.question.num1} × ${retryData.question.num2}`;
+    }
     notification.innerHTML = `
       <div class="retry-content">
         <h3>🎯 Pokušaj ponovno!</h3>
-        <p>Želiš li ponovno pokušati riješiti:<br><strong>${retryData.question.num1} × ${retryData.question.num2}</strong>?</p>
+        <p>Želiš li ponovno pokušati riješiti:<br><strong>${taskText}</strong>?</p>
         <div class="retry-buttons">
           <button class="retry-btn retry-accept" onclick="window.mathNinja.retrySystem.acceptRetryChallenge()">
             ✓ Da, pokušat ću!
@@ -213,14 +257,44 @@ export class RetryChallengeSystem {
       }
     }
 
-    // Shuffle answers
-    return {
-      num1: question.num1,
-      num2: question.num2,
-      correctAnswer,
-      answers: answers.sort(() => Math.random() - 0.5),
-      isRetry: true,
-    };
+    // Shuffle answers and return payload
+    const shuffled = answers.sort(() => Math.random() - 0.5);
+    const isDivisionQ =
+      question.operation === GAME_CONFIG.OPERATIONS.DIVISION &&
+      Number.isFinite(question.dividend) &&
+      Number.isFinite(question.divisor);
+
+    if (isDivisionQ) {
+      return {
+        dividend: question.dividend,
+        divisor: question.divisor,
+        correctAnswer,
+        answers: shuffled,
+        isRetry: true,
+        operation: GAME_CONFIG.OPERATIONS.DIVISION,
+      };
+    } else if (
+      question.operation === GAME_CONFIG.OPERATIONS.ADDITION ||
+      question.operation === GAME_CONFIG.OPERATIONS.SUBTRACTION
+    ) {
+      return {
+        question: question.question,
+        correctAnswer,
+        answers: shuffled,
+        isRetry: true,
+        operation: question.operation,
+      };
+    } else {
+      // Multiplication or other operations
+      return {
+        num1: question.num1,
+        num2: question.num2,
+        correctAnswer,
+        answers: shuffled,
+        isRetry: true,
+        operation: question.operation || GAME_CONFIG.OPERATIONS.MULTIPLICATION,
+      };
+    }
   }
 
   /**
@@ -230,6 +304,19 @@ export class RetryChallengeSystem {
     // Create retry overlay
     const overlay = document.createElement("div");
     overlay.className = "retry-overlay";
+    const isDivisionUI =
+      retryQuestion.operation === GAME_CONFIG.OPERATIONS.DIVISION;
+
+    let displayMath;
+    if (isDivisionUI) {
+      displayMath = `${retryQuestion.dividend} ÷ ${retryQuestion.divisor}`;
+    } else if (retryQuestion.question) {
+      // Use the formatted question text for addition/subtraction/other operations
+      displayMath = retryQuestion.question;
+    } else {
+      // Fallback to multiplication format
+      displayMath = `${retryQuestion.num1} × ${retryQuestion.num2}`;
+    }
     overlay.innerHTML = `
       <div class="retry-challenge">
         <div class="retry-header">
@@ -238,9 +325,7 @@ export class RetryChallengeSystem {
         </div>
         
         <div class="retry-question">
-          <span class="retry-math">${retryQuestion.num1} × ${
-      retryQuestion.num2
-    } = </span>
+          <span class="retry-math">${displayMath} = </span>
         </div>
         
         <div class="retry-answers" id="retryAnswers">
@@ -304,11 +389,15 @@ export class RetryChallengeSystem {
         this.currentRetryQuestion.level,
         this.currentRetryQuestion.question,
         -1, // Timeout indicator
-        this.currentRetryQuestion.question.correctAnswer
+        this.currentRetryQuestion.question.correctAnswer,
+        this.currentRetryQuestion.question.operation
       );
 
       console.log(
-        `⏰ Retry challenge timeout tracked: ${this.currentRetryQuestion.question.num1} × ${this.currentRetryQuestion.question.num2} (timeout)`
+        `⏰ Retry challenge timeout tracked: ${
+          this.currentRetryQuestion.question.question ||
+          `${this.currentRetryQuestion.question.num1} × ${this.currentRetryQuestion.question.num2}`
+        } (timeout)`
       );
     }
 
@@ -348,11 +437,17 @@ export class RetryChallengeSystem {
         this.currentRetryQuestion.level,
         this.currentRetryQuestion.question,
         selectedAnswer,
-        this.currentRetryQuestion.question.correctAnswer
+        this.currentRetryQuestion.question.correctAnswer,
+        this.currentRetryQuestion.question.operation
       );
 
       console.log(
-        `📝 Retry challenge wrong answer tracked: ${this.currentRetryQuestion.question.num1} × ${this.currentRetryQuestion.question.num2} = ${selectedAnswer} (correct: ${this.currentRetryQuestion.question.correctAnswer})`
+        `📝 Retry challenge wrong answer tracked: ${
+          this.currentRetryQuestion.question.question ||
+          `${this.currentRetryQuestion.question.num1} × ${this.currentRetryQuestion.question.num2}`
+        } = ${selectedAnswer} (correct: ${
+          this.currentRetryQuestion.question.correctAnswer
+        })`
       );
     }
 
@@ -423,11 +518,15 @@ export class RetryChallengeSystem {
         this.currentRetryQuestion.level,
         this.currentRetryQuestion.question,
         -2, // Skip indicator
-        this.currentRetryQuestion.question.correctAnswer
+        this.currentRetryQuestion.question.correctAnswer,
+        this.currentRetryQuestion.question.operation
       );
 
       console.log(
-        `⏭️ Retry challenge skip tracked: ${this.currentRetryQuestion.question.num1} × ${this.currentRetryQuestion.question.num2} (skipped)`
+        `⏭️ Retry challenge skip tracked: ${
+          this.currentRetryQuestion.question.question ||
+          `${this.currentRetryQuestion.question.num1} × ${this.currentRetryQuestion.question.num2}`
+        } (skipped)`
       );
     }
 

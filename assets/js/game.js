@@ -4,9 +4,11 @@
  */
 
 import { GAME_CONFIG, FEEDBACK_TYPES } from "./config.js";
+import { OperationManager } from "./operation-manager.js";
 
 export class GameEngine {
   constructor() {
+    this.operationManager = new OperationManager();
     this.reset();
   }
 
@@ -36,10 +38,17 @@ export class GameEngine {
    * Start a new game with specified level
    * @param {number} level - Game level (1-10, or 0 for daily challenge)
    * @param {Array} unlearnedWrongAnswers - Optional array of unlearned wrong answers for this level
+   * @param {string} operation - Operation type (multiplication, division, addition, subtraction, combined)
    */
-  startGame(level, unlearnedWrongAnswers = []) {
+  startGame(
+    level,
+    unlearnedWrongAnswers = [],
+    operation = GAME_CONFIG.OPERATIONS.MULTIPLICATION
+  ) {
     this.reset();
     this.currentLevel = level;
+    this.currentOperation = operation;
+    this.operationManager.setOperation(operation, level);
     this.timeLimit =
       level === 0
         ? GAME_CONFIG.DAILY_CHALLENGE_TIMER
@@ -50,7 +59,7 @@ export class GameEngine {
     this.unlearnedWrongAnswers = unlearnedWrongAnswers || [];
 
     console.log(
-      `🎮 Starting level ${level} with ${this.unlearnedWrongAnswers.length} unlearned wrong answers to review`
+      `🎮 Starting ${operation} level ${level} with ${this.unlearnedWrongAnswers.length} unlearned wrong answers to review`
     );
 
     // Track today's play session
@@ -60,7 +69,7 @@ export class GameEngine {
   }
 
   /**
-   * Generate a new multiplication question
+   * Generate a new question based on current operation
    * @returns {Object} Question data with numbers and correct answer
    */
   generateQuestion() {
@@ -125,6 +134,8 @@ export class GameEngine {
     const questionData = {
       num1: wrongAnswer.num1,
       num2: wrongAnswer.num2,
+      question: `${wrongAnswer.num1} × ${wrongAnswer.num2}`,
+      operation: GAME_CONFIG.OPERATIONS.MULTIPLICATION,
       correctAnswer: this.currentAnswer,
       answers: this.generateAnswerOptions(),
       isFromWrongAnswers: true, // Flag to identify this as a review question
@@ -137,34 +148,15 @@ export class GameEngine {
   }
 
   /**
-   * Generate a random multiplication question
+   * Generate a random question based on current operation
    * @returns {Object} Question data with numbers and correct answer
    */
   generateRandomQuestion() {
-    let num1, num2, questionKey;
-    let attempts = 0;
-    const maxAttempts = 20; // Prevent infinite loops
+    // Use OperationManager to generate question
+    const questionData = this.operationManager.generateQuestion();
 
-    do {
-      num1 =
-        this.currentLevel === 0
-          ? Math.floor(Math.random() * GAME_CONFIG.MAX_LEVEL) + 1
-          : this.currentLevel;
-
-      num2 = Math.floor(Math.random() * GAME_CONFIG.MAX_LEVEL) + 1;
-      questionKey = `${num1}x${num2}`;
-      attempts++;
-
-      // If we've tried many times, clear recent history to avoid being stuck
-      if (attempts > maxAttempts / 2) {
-        this.questionHistory = this.questionHistory.slice(-2); // Keep only last 2
-      }
-    } while (
-      this.questionHistory.includes(questionKey) &&
-      attempts < maxAttempts
-    );
-
-    this.currentAnswer = num1 * num2;
+    // Generate unique question key based on operation and numbers
+    const questionKey = this.generateQuestionKey(questionData);
 
     // Add to question history (keep last 3-4 questions to prevent immediate repeats)
     this.questionHistory.push(questionKey);
@@ -172,18 +164,31 @@ export class GameEngine {
       this.questionHistory.shift(); // Remove oldest
     }
 
-    const questionData = {
-      num1,
-      num2,
-      correctAnswer: this.currentAnswer,
-      answers: this.generateAnswerOptions(),
+    // Generate answer options
+    const answers = this.operationManager.getAllAnswers(questionData);
+
+    // Store current question data with additional metadata
+    this.currentQuestionData = {
+      ...questionData,
+      answers,
       isFromWrongAnswers: false,
+      questionKey,
     };
 
-    // Store current question data
-    this.currentQuestionData = questionData;
+    // Set currentAnswer for compatibility
+    this.currentAnswer = questionData.correctAnswer;
 
-    return questionData;
+    return this.currentQuestionData;
+  }
+
+  /**
+   * Generate unique question key for tracking
+   * @param {Object} questionData - Question data object
+   * @returns {string} Unique question key
+   */
+  generateQuestionKey(questionData) {
+    const { question, operation } = questionData;
+    return `${operation}_${question}`;
   }
 
   /**
@@ -242,7 +247,12 @@ export class GameEngine {
     let feedbackType;
     let pointsEarned = 0;
 
-    if (selectedAnswer === this.currentAnswer) {
+    if (
+      this.operationManager.checkAnswer(
+        selectedAnswer,
+        this.currentQuestionData.correctAnswer
+      )
+    ) {
       this.correctAnswers++;
       this.streak++;
       if (this.streak > this.maxStreak) {
@@ -267,7 +277,7 @@ export class GameEngine {
     return {
       feedbackType,
       pointsEarned,
-      correctAnswer: this.currentAnswer,
+      correctAnswer: this.currentQuestionData.correctAnswer,
       isGameComplete,
       gameStats: this.getGameStats(),
     };
@@ -299,12 +309,40 @@ export class GameEngine {
    * @param {number} correctAnswer - Correct answer
    */
   trackCurrentSessionWrongAnswer(question, wrongAnswer, correctAnswer) {
+    let displayQuestion = question.question;
+    let num1 = question.num1;
+    let num2 = question.num2;
+    let extra = {};
+
+    // Prefer safe formatting
+    if (
+      question.operation === GAME_CONFIG.OPERATIONS.DIVISION &&
+      Number.isFinite(question.dividend) &&
+      Number.isFinite(question.divisor)
+    ) {
+      displayQuestion = `${question.dividend} ÷ ${question.divisor}`;
+      // For learning we still keep multiplicative pair (divisor × quotient)
+      num1 = question.divisor;
+      num2 = Number.isFinite(question.quotient)
+        ? question.quotient
+        : question.correctAnswer;
+      extra = {
+        dividend: question.dividend,
+        divisor: question.divisor,
+        quotient: num2,
+      };
+    } else if (Number.isFinite(num1) && Number.isFinite(num2)) {
+      displayQuestion = `${num1} × ${num2}`;
+    }
+
     const wrongData = {
-      question: `${question.num1} × ${question.num2}`,
-      num1: question.num1,
-      num2: question.num2,
+      question: displayQuestion,
+      num1,
+      num2,
       wrongAnswer,
       correctAnswer,
+      operation: question.operation,
+      ...extra,
       timestamp: Date.now(),
     };
 
@@ -334,6 +372,19 @@ export class GameEngine {
 
     console.log(
       `✅ Removed resolved wrong answer from current session: ${num1} × ${num2}`
+    );
+  }
+
+  /**
+   * Remove wrong answer from current session by question text (for addition/subtraction)
+   */
+  removeCurrentSessionWrongAnswerByQuestion(questionText) {
+    this.currentSessionWrongAnswers = this.currentSessionWrongAnswers.filter(
+      (wrongAnswer) => wrongAnswer.question !== questionText
+    );
+
+    console.log(
+      `✅ Removed resolved wrong answer from current session: ${questionText}`
     );
   }
 
@@ -389,7 +440,7 @@ export class GameEngine {
    * @returns {Object|null} Current question data
    */
   getCurrentQuestion() {
-    if (!this.isGameActive || this.currentAnswer === 0) return null;
+    if (!this.isGameActive) return null;
 
     // Return stored current question if available
     if (this.currentQuestionData) {

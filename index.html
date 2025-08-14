@@ -136,7 +136,7 @@
           </button>
           <button
             class="menu-button primary"
-            onclick="mathNinja.showLevelSelect()"
+            onclick="mathNinja.showOperationSelect()"
           >
             Nova Igra
           </button>
@@ -162,9 +162,23 @@
         </div>
       </div>
 
+      <!-- Odabir operacije -->
+      <div class="operation-select-screen" style="display: none">
+        <h2>Odaberi Računsku Operaciju</h2>
+
+        <!-- Operation Selection Grid -->
+        <div class="operation-grid" id="operationGrid">
+          <!-- Operations will be dynamically generated -->
+        </div>
+
+        <button class="back-button" onclick="mathNinja.showMenu()">
+          Natrag
+        </button>
+      </div>
+
       <!-- Odabir razine -->
       <div class="level-select-screen" style="display: none">
-        <h2>Odaberi Tablicu Množenja</h2>
+        <h2 id="levelSelectTitle">Odaberi Level</h2>
 
         <!-- Progress Indicator for Level Select -->
         <div

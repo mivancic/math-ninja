@@ -8,12 +8,15 @@ import {
   SCREEN_NAMES,
   getPerformanceTier,
   getStreakTheme,
+  getOperationConfig,
+  getAvailableOperations,
 } from "./config.js";
 import { GameEngine } from "./game.js";
 import { AudioManager } from "./audio.js";
 import { StatisticsManager } from "./statistics.js";
 import { VisualEffectsManager } from "./visual-effects.js";
 import { RetryChallengeSystem } from "./retry-system.js";
+import { OperationManager } from "./operation-manager.js";
 
 class MathNinjaApp {
   constructor() {
@@ -27,7 +30,25 @@ class MathNinjaApp {
       this.gameEngine
     );
 
+    try {
+      this.operationManager = new OperationManager();
+      console.log("✅ OperationManager initialized successfully");
+    } catch (error) {
+      console.error("❌ Failed to initialize OperationManager:", error);
+      // Fallback to basic operation management
+      this.operationManager = {
+        setOperation: (operation, level) => {
+          console.log(`Setting operation: ${operation}, level: ${level}`);
+        },
+        getQuestionDisplayText: (questionData) => {
+          return questionData.question || "Unknown question";
+        },
+      };
+    }
+
     this.currentScreen = SCREEN_NAMES.MENU;
+    this.currentOperation = GAME_CONFIG.OPERATIONS.MULTIPLICATION;
+    this.currentLevel = 1;
     this.timerInterval = null;
     this.pausedGameState = null; // Store paused game state
     this.pausedTimeLeft = null; // Store remaining time when paused
@@ -40,6 +61,13 @@ class MathNinjaApp {
    * Initialize the application
    */
   async init() {
+    console.log("🚀 Initializing Math Ninja...");
+    console.log("🔍 GAME_CONFIG:", GAME_CONFIG);
+    console.log(
+      "🔍 Available operations:",
+      Object.values(GAME_CONFIG.OPERATIONS)
+    );
+
     this.loadStats();
     await this.audioManager.init();
     this.setupAudioControls();
@@ -275,6 +303,8 @@ class MathNinjaApp {
       levelStars: {}, // New: Store stars per level (level: stars)
       lastPlayed: null,
       daysPlayed: [],
+      // Per-operation progress (new)
+      byOperation: {},
     };
   }
 
@@ -282,12 +312,17 @@ class MathNinjaApp {
    * Switch to specific screen
    */
   switchScreen(screenName) {
+    console.log(`🔄 Switching to screen: ${screenName}`);
+
     // Hide all screens
     Object.values(SCREEN_NAMES).forEach((screen) => {
       const element = document.querySelector(`.${screen}`);
       if (element) {
         element.classList.remove("active");
-        if (screen === SCREEN_NAMES.LEVEL_SELECT) {
+        if (
+          screen === SCREEN_NAMES.LEVEL_SELECT ||
+          screen === SCREEN_NAMES.OPERATION_SELECT
+        ) {
           element.style.display = "none";
         }
       }
@@ -296,10 +331,16 @@ class MathNinjaApp {
     // Show target screen
     const targetElement = document.querySelector(`.${screenName}`);
     if (targetElement) {
+      console.log(`✅ Found target screen: ${screenName}`);
       targetElement.classList.add("active");
-      if (screenName === SCREEN_NAMES.LEVEL_SELECT) {
-        targetElement.style.display = "block";
+      if (
+        screenName === SCREEN_NAMES.LEVEL_SELECT ||
+        screenName === SCREEN_NAMES.OPERATION_SELECT
+      ) {
+        targetElement.style.display = "flex";
       }
+    } else {
+      console.error(`❌ Target screen not found: ${screenName}`);
     }
 
     this.currentScreen = screenName;
@@ -329,6 +370,14 @@ class MathNinjaApp {
     const continueBtn = document.getElementById("continueGameBtn");
     if (this.pausedGameState) {
       continueBtn.style.display = "block";
+
+      // Update continue button text to show current operation and level
+      const config = getOperationConfig(this.pausedGameState.operation);
+      const levelText =
+        this.pausedGameState.level === 0
+          ? "Dnevni Izazov"
+          : `Level ${this.pausedGameState.level}`;
+      continueBtn.textContent = `Nastavi - ${config.name} (${levelText})`;
     } else {
       continueBtn.style.display = "none";
     }
@@ -341,10 +390,169 @@ class MathNinjaApp {
   }
 
   /**
+   * Show operation selection screen
+   */
+  showOperationSelect() {
+    console.log("🎯 Showing operation select screen");
+    this.switchScreen(SCREEN_NAMES.OPERATION_SELECT);
+    console.log("🎯 Screen switched, generating cards...");
+    this.generateOperationCards();
+  }
+
+  /**
+   * Generate operation selection cards
+   */
+  generateOperationCards() {
+    const grid = document.getElementById("operationGrid");
+    if (!grid) {
+      console.error("❌ Operation grid element not found!");
+      return;
+    }
+
+    grid.innerHTML = "";
+
+    // Define operations in specific order: 2x2 grid + combined at bottom
+    const operations = [
+      GAME_CONFIG.OPERATIONS.MULTIPLICATION,
+      GAME_CONFIG.OPERATIONS.DIVISION,
+      GAME_CONFIG.OPERATIONS.ADDITION,
+      GAME_CONFIG.OPERATIONS.SUBTRACTION,
+      GAME_CONFIG.OPERATIONS.COMBINED,
+    ];
+
+    console.log("🔍 Available operations:", operations);
+
+    if (!operations || operations.length === 0) {
+      console.error("❌ No operations available!");
+      return;
+    }
+
+    operations.forEach((operation) => {
+      // Import OPERATIONS_CONFIG directly
+      const OPERATIONS_CONFIG = {
+        [GAME_CONFIG.OPERATIONS.MULTIPLICATION]: {
+          name: "Množenje",
+          symbol: "×",
+          emoji: "✖️",
+          description: "Vježbaj tablice množenja",
+          color: "#4CAF50",
+          levels: Array.from({ length: 10 }, (_, i) => i + 1),
+        },
+        [GAME_CONFIG.OPERATIONS.DIVISION]: {
+          name: "Djeljenje",
+          symbol: "÷",
+          emoji: "➗",
+          description: "Vježbaj djeljenje",
+          color: "#2196F3",
+          levels: Array.from({ length: 10 }, (_, i) => i + 1),
+        },
+        [GAME_CONFIG.OPERATIONS.ADDITION]: {
+          name: "Zbrajanje",
+          symbol: "+",
+          emoji: "➕",
+          description: "Vježbaj zbrajanje",
+          color: "#FF9800",
+          levels: Array.from({ length: 10 }, (_, i) => i + 1),
+        },
+        [GAME_CONFIG.OPERATIONS.SUBTRACTION]: {
+          name: "Oduzimanje",
+          symbol: "-",
+          emoji: "➖",
+          description: "Vježbaj oduzimanje",
+          color: "#9C27B0",
+          levels: Array.from({ length: 10 }, (_, i) => i + 1),
+        },
+        [GAME_CONFIG.OPERATIONS.COMBINED]: {
+          name: "Kombinirano",
+          symbol: "±",
+          emoji: "🎯",
+          description: "Sve računske operacije",
+          color: "#E91E63",
+          levels: [1],
+        },
+      };
+
+      const config =
+        OPERATIONS_CONFIG[operation] ||
+        OPERATIONS_CONFIG[GAME_CONFIG.OPERATIONS.MULTIPLICATION];
+      console.log(`🔍 Config for ${operation}:`, config);
+
+      if (!config) {
+        console.error(`❌ No config found for operation: ${operation}`);
+        return;
+      }
+
+      const card = document.createElement("div");
+      card.className = "operation-card";
+      if (operation === GAME_CONFIG.OPERATIONS.COMBINED) {
+        card.classList.add("combined");
+      }
+      card.style.borderColor = config.color;
+
+      // Get progress for this operation
+      const progress = this.getOperationProgress(operation);
+
+      card.innerHTML = `
+        <span class="operation-icon">${config.emoji}</span>
+        <div class="operation-title">${config.name}</div>
+        <div class="operation-description">${config.description}</div>
+        <div class="operation-progress">
+          <div>Napredak: ${progress.completed}/${progress.total} levelova</div>
+          <div class="operation-progress-bar">
+            <div class="operation-progress-fill" style="width: ${progress.percentage}%"></div>
+          </div>
+        </div>
+      `;
+
+      card.onclick = () => this.selectOperation(operation);
+      grid.appendChild(card);
+    });
+
+    console.log(`✅ Generated ${operations.length} operation cards`);
+  }
+
+  /**
+   * Get progress for a specific operation
+   * @param {string} operation - Operation type
+   * @returns {Object} Progress object
+   */
+  getOperationProgress(operation) {
+    const total = operation === GAME_CONFIG.OPERATIONS.COMBINED ? 1 : 10;
+    const opStats = this.stats.byOperation?.[operation];
+    const completed = opStats ? opStats.completedLevels.length : 0;
+    const totalStars = opStats
+      ? Object.values(opStats.levelStars).reduce((s, v) => s + v, 0)
+      : 0;
+
+    return {
+      completed,
+      total,
+      percentage: Math.round((completed / total) * 100),
+      stars: totalStars,
+    };
+  }
+
+  /**
+   * Select an operation and show level select
+   * @param {string} operation - Selected operation
+   */
+  selectOperation(operation) {
+    this.currentOperation = operation;
+    this.operationManager.setOperation(operation);
+    this.showLevelSelect();
+  }
+
+  /**
    * Show level selection screen
    */
   showLevelSelect() {
     this.switchScreen(SCREEN_NAMES.LEVEL_SELECT);
+
+    // Update title based on selected operation
+    const title = document.getElementById("levelSelectTitle");
+    const config = getOperationConfig(this.currentOperation);
+    title.textContent = `Odaberi Level - ${config.name}`;
+
     this.generateLevelButtons();
     this.updateLevelSelectProgressIndicator();
   }
@@ -360,8 +568,13 @@ class MathNinjaApp {
       const button = document.createElement("button");
       button.className = "level-button";
 
-      const stars = this.stats.levelStars[i] || 0;
-      const isCompleted = this.stats.completedLevels.includes(i) || stars > 0;
+      const op = this.currentOperation;
+      const opStats = this.stats.byOperation?.[op] || {
+        completedLevels: [],
+        levelStars: {},
+      };
+      const stars = opStats.levelStars[i] || 0;
+      const isCompleted = opStats.completedLevels.includes(i) || stars > 0;
 
       if (isCompleted) {
         button.classList.add("completed");
@@ -403,38 +616,62 @@ class MathNinjaApp {
 
     this.switchScreen(SCREEN_NAMES.GAME);
 
+    // Set current level
+    this.currentLevel = level;
+    this.operationManager.setOperation(this.currentOperation, level);
+
     // Track daily play
     this.trackDailyPlay();
+
+    // Ensure per-operation progress bucket exists
+    const op = this.currentOperation;
+    if (!this.stats.byOperation[op]) {
+      this.stats.byOperation[op] = {
+        completedLevels: [],
+        levelStars: {},
+        gamesPlayed: 0,
+        totalQuestions: 0,
+        totalCorrect: 0,
+        totalScore: 0,
+      };
+    }
 
     // Track daily challenge if level 0
     if (level === 0) {
       this.statisticsManager.trackDailyChallenge();
     }
 
-    // Get unlearned wrong answers for this level
+    // Get unlearned wrong answers for this level and operation
     let unlearnedWrongAnswers = [];
     if (level === 0) {
       // For daily challenge, get mix of all unlearned wrong answers
       unlearnedWrongAnswers =
-        this.statisticsManager.getAllUnlearnedWrongAnswers();
+        this.statisticsManager.getAllUnlearnedWrongAnswers(
+          this.currentOperation
+        );
     } else {
-      // For specific level, get unlearned wrong answers for that level
-      unlearnedWrongAnswers =
-        this.statisticsManager.getUnlearnedWrongAnswers(level);
+      // For specific level, get unlearned wrong answers for that level and operation
+      unlearnedWrongAnswers = this.statisticsManager.getUnlearnedWrongAnswers(
+        level,
+        this.currentOperation
+      );
     }
 
     console.log(
-      `🎯 Starting level ${level} with ${unlearnedWrongAnswers.length} unlearned wrong answers`
+      `🎯 Starting ${this.currentOperation} level ${level} with ${unlearnedWrongAnswers.length} unlearned wrong answers`
     );
 
     // Start game engine with unlearned wrong answers
     const questionData = this.gameEngine.startGame(
       level,
-      unlearnedWrongAnswers
+      unlearnedWrongAnswers,
+      this.currentOperation
     );
 
     // Update UI
-    const levelText = level === 0 ? "Dnevni Izazov" : level.toString();
+    const config = getOperationConfig(this.currentOperation);
+    const levelText =
+      level === 0 ? "Dnevni Izazov" : `${config.name} - Level ${level}`;
     document.getElementById("currentLevel").textContent = levelText;
 
     // Start first question
@@ -457,7 +694,8 @@ class MathNinjaApp {
     if (!questionData) return;
 
     // Show question with optional review indicator
-    let questionText = `${questionData.num1} × ${questionData.num2} = `;
+    let questionText =
+      this.operationManager.getQuestionDisplayText(questionData) + " = ";
     if (questionData.isFromWrongAnswers) {
       questionText = `📚 ${questionText}`; // Add book emoji to indicate review question
     }
@@ -490,7 +728,18 @@ class MathNinjaApp {
     });
 
     // Get current question before evaluation (to preserve isFromWrongAnswers flag)
-    const currentQuestion = this.gameEngine.getCurrentQuestion();
+    let currentQuestion = this.gameEngine.getCurrentQuestion();
+    if (!currentQuestion) {
+      const qd = this.gameEngine.currentQuestionData || {};
+      currentQuestion = {
+        num1: qd.num1,
+        num2: qd.num2,
+        operation: qd.operation,
+        correctAnswer: qd.correctAnswer,
+        isFromWrongAnswers: !!qd.isFromWrongAnswers,
+        question: qd.question,
+      };
+    }
 
     // Evaluate answer
     const result = this.gameEngine.evaluateAnswer(selectedAnswer);
@@ -501,24 +750,48 @@ class MathNinjaApp {
 
       // If this was a review question from unlearned wrong answers, mark it as learned
       if (currentQuestion.isFromWrongAnswers) {
-        this.statisticsManager.markAsLearned(
-          this.gameEngine.currentLevel,
-          currentQuestion.num1,
-          currentQuestion.num2
-        );
+        // Mark as learned for ALL operations
+        if (
+          currentQuestion.operation === GAME_CONFIG.OPERATIONS.MULTIPLICATION ||
+          currentQuestion.operation === GAME_CONFIG.OPERATIONS.DIVISION
+        ) {
+          // For multiplication/division, use num1/num2
+          this.statisticsManager.markAsLearned(
+            this.gameEngine.currentLevel,
+            currentQuestion.num1,
+            currentQuestion.num2,
+            currentQuestion.operation
+          );
 
-        // Also remove from current session if it exists there
-        this.gameEngine.removeCurrentSessionWrongAnswer(
-          currentQuestion.num1,
-          currentQuestion.num2
-        );
+          // Also remove from current session if it exists there
+          this.gameEngine.removeCurrentSessionWrongAnswer(
+            currentQuestion.num1,
+            currentQuestion.num2
+          );
 
-        console.log(
-          `✅ Marked as learned during gameplay: ${currentQuestion.num1} × ${currentQuestion.num2}`
-        );
+          console.log(
+            `✅ Marked as learned during gameplay: ${currentQuestion.num1} × ${currentQuestion.num2}`
+          );
+        } else {
+          // For addition/subtraction, use question text to mark as learned
+          this.statisticsManager.markAsLearnedByQuestion(
+            this.gameEngine.currentLevel,
+            currentQuestion.question,
+            currentQuestion.operation
+          );
+
+          // Also remove from current session by question text
+          this.gameEngine.removeCurrentSessionWrongAnswerByQuestion(
+            currentQuestion.question
+          );
+
+          console.log(
+            `✅ Marked as learned during gameplay: ${currentQuestion.question}`
+          );
+        }
       }
     } else {
-      // Track wrong answer in statistics (for persistence)
+      // Track wrong answer in statistics (for persistence) for ALL operations
       this.retrySystem.trackWrongAnswer(
         this.gameEngine.currentLevel,
         currentQuestion,
@@ -526,7 +799,7 @@ class MathNinjaApp {
         result.correctAnswer
       );
 
-      // Track wrong answer in current session (for retry system)
+      // Track wrong answer in current session (for retry system) for ALL operations
       this.gameEngine.trackCurrentSessionWrongAnswer(
         currentQuestion,
         selectedAnswer,
@@ -616,7 +889,12 @@ class MathNinjaApp {
    */
   handleTimeout() {
     const result = this.gameEngine.handleTimeout();
-    const currentQuestion = this.gameEngine.getCurrentQuestion();
+    const currentQuestion = this.gameEngine.getCurrentQuestion() || {
+      // Fallback for non-multiplication operations
+      question: this.gameEngine.currentQuestionData?.question,
+      num1: this.gameEngine.currentQuestionData?.num1,
+      num2: this.gameEngine.currentQuestionData?.num2,
+    };
 
     // Track timeout as wrong answer in statistics
     this.retrySystem.trackWrongAnswer(
@@ -771,6 +1049,24 @@ class MathNinjaApp {
       this.stats.bestStreak = gameStats.maxStreak;
     }
 
+    // Update per-operation statistics
+    const op = this.currentOperation;
+    const opStats = this.stats.byOperation[op] || {
+      completedLevels: [],
+      levelStars: {},
+      gamesPlayed: 0,
+      totalQuestions: 0,
+      totalCorrect: 0,
+      totalScore: 0,
+    };
+
+    opStats.totalScore += gameStats.score;
+    opStats.gamesPlayed++;
+    opStats.totalQuestions += gameStats.questionsAnswered;
+    opStats.totalCorrect += gameStats.correctAnswers;
+
+    this.stats.byOperation[op] = opStats;
+
     // Handle daily challenge completion
     if (gameStats.level === 0) {
       // Track daily challenge run
@@ -779,17 +1075,17 @@ class MathNinjaApp {
       // Check level completion for regular levels
       if (
         gameStats.accuracy >= GAME_CONFIG.ACCURACY_THRESHOLD &&
-        !this.stats.completedLevels.includes(gameStats.level)
+        !opStats.completedLevels.includes(gameStats.level)
       ) {
-        this.stats.completedLevels.push(gameStats.level);
+        opStats.completedLevels.push(gameStats.level);
       }
 
       // Save star rating for level
       const performanceData = getPerformanceTier(gameStats.accuracy);
-      const currentStars = this.stats.levelStars[gameStats.level] || 0;
+      const currentStars = opStats.levelStars[gameStats.level] || 0;
       // Only update if new star rating is better
       if (performanceData.stars > currentStars) {
-        this.stats.levelStars[gameStats.level] = performanceData.stars;
+        opStats.levelStars[gameStats.level] = performanceData.stars;
       }
     }
 
@@ -1021,6 +1317,7 @@ class MathNinjaApp {
       gameStats: this.gameEngine.getGameStats(),
       currentQuestion: this.gameEngine.getCurrentQuestion(),
       level: this.gameEngine.currentLevel,
+      operation: this.currentOperation,
       questionsRemaining: this.gameEngine.getQuestionsRemaining(),
       unlearnedWrongAnswers: this.gameEngine.unlearnedWrongAnswers,
       wrongAnswersUsed: Array.from(this.gameEngine.wrongAnswersUsed),
@@ -1051,11 +1348,19 @@ class MathNinjaApp {
     // Restore game state
     this.gameEngine.restoreGameState(this.pausedGameState);
 
+    // Restore current operation
+    this.currentOperation = this.pausedGameState.operation;
+    this.operationManager.setOperation(
+      this.currentOperation,
+      this.pausedGameState.level
+    );
+
     // Update UI
+    const config = getOperationConfig(this.currentOperation);
     const levelText =
       this.pausedGameState.level === 0
         ? "Dnevni Izazov"
-        : this.pausedGameState.level.toString();
+        : `${config.name} - Level ${this.pausedGameState.level}`;
     document.getElementById("currentLevel").textContent = levelText;
 
     // Display current question
@@ -1118,11 +1423,25 @@ class MathNinjaApp {
    * Update progress indicator on menu screen
    */
   updateProgressIndicator() {
-    const completedLevels = this.stats.completedLevels.length;
-    const totalStars = Object.values(this.stats.levelStars).reduce(
-      (sum, stars) => sum + stars,
-      0
-    );
+    // Aggregate progress across all operations
+    const ops = [
+      GAME_CONFIG.OPERATIONS.MULTIPLICATION,
+      GAME_CONFIG.OPERATIONS.DIVISION,
+      GAME_CONFIG.OPERATIONS.ADDITION,
+      GAME_CONFIG.OPERATIONS.SUBTRACTION,
+    ];
+    let completedLevels = 0;
+    let totalStars = 0;
+    ops.forEach((op) => {
+      const opStats = this.stats.byOperation?.[op];
+      if (opStats) {
+        completedLevels += opStats.completedLevels.length;
+        totalStars += Object.values(opStats.levelStars).reduce(
+          (sum, stars) => sum + stars,
+          0
+        );
+      }
+    });
     const hasStartedPlaying =
       completedLevels > 0 || totalStars > 0 || this.stats.gamesPlayed > 0;
 
@@ -1140,7 +1459,7 @@ class MathNinjaApp {
       progressIndicator.style.display = "block";
     }
 
-    const totalLevels = GAME_CONFIG.MAX_LEVEL;
+    const totalLevels = GAME_CONFIG.MAX_LEVEL * ops.length; // overall across core operations
     const progressPercentage = Math.round(
       (completedLevels / totalLevels) * 100
     );
@@ -1283,8 +1602,13 @@ class MathNinjaApp {
    * Update progress indicator on level select screen
    */
   updateLevelSelectProgressIndicator() {
-    const completedLevels = this.stats.completedLevels.length;
-    const totalStars = Object.values(this.stats.levelStars).reduce(
+    const op = this.currentOperation;
+    const opStats = this.stats.byOperation?.[op] || {
+      completedLevels: [],
+      levelStars: {},
+    };
+    const completedLevels = opStats.completedLevels.length;
+    const totalStars = Object.values(opStats.levelStars).reduce(
       (sum, stars) => sum + stars,
       0
     );

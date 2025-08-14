@@ -9,9 +9,32 @@ export class StatisticsManager {
   constructor() {
     this.currentSessionStart = null;
     this.playtimeInterval = null;
-    this.wrongAnswers = this.loadWrongAnswers();
+
+    // Operation-specific wrong answers storage
+    this.wrongAnswersByOperation = {
+      [GAME_CONFIG.OPERATIONS.MULTIPLICATION]:
+        this.loadWrongAnswersForOperation(
+          GAME_CONFIG.OPERATIONS.MULTIPLICATION
+        ),
+      [GAME_CONFIG.OPERATIONS.DIVISION]: this.loadWrongAnswersForOperation(
+        GAME_CONFIG.OPERATIONS.DIVISION
+      ),
+      [GAME_CONFIG.OPERATIONS.ADDITION]: this.loadWrongAnswersForOperation(
+        GAME_CONFIG.OPERATIONS.ADDITION
+      ),
+      [GAME_CONFIG.OPERATIONS.SUBTRACTION]: this.loadWrongAnswersForOperation(
+        GAME_CONFIG.OPERATIONS.SUBTRACTION
+      ),
+    };
+
+    // Legacy support for combined access
+    this.wrongAnswers = this.getCombinedWrongAnswers();
+
     this.detailedStats = this.loadDetailedStats();
     this.dailyStreak = this.calculateDailyStreak();
+
+    // Legacy: Migrate old wrong answers if they exist
+    this.migrateLegacyWrongAnswers();
 
     // Start session tracking
     this.startSession();
@@ -68,15 +91,21 @@ export class StatisticsManager {
   }
 
   /**
-   * Load wrong answers tracking from localStorage
+   * Load wrong answers for a specific operation from localStorage
    */
-  loadWrongAnswers() {
+  loadWrongAnswersForOperation(operation) {
     try {
-      const saved = localStorage.getItem(GAME_CONFIG.WRONG_ANSWERS_KEY);
+      const storageKey = GAME_CONFIG.WRONG_ANSWERS_KEYS[operation];
+      if (!storageKey) {
+        console.warn(`No storage key defined for operation: ${operation}`);
+        return {};
+      }
+
+      const saved = localStorage.getItem(storageKey);
       if (saved) {
         const wrongAnswers = JSON.parse(saved);
 
-        // Migrate old data structure to include allWrongAnswers
+        // Migration: Convert single wrongAnswer to allWrongAnswers array
         Object.keys(wrongAnswers).forEach((levelKey) => {
           wrongAnswers[levelKey].forEach((wrongAnswer) => {
             if (
@@ -85,32 +114,175 @@ export class StatisticsManager {
             ) {
               wrongAnswer.allWrongAnswers = [wrongAnswer.wrongAnswer];
               console.log(
-                `🔄 Migrated wrong answer for ${wrongAnswer.question}: ${wrongAnswer.wrongAnswer}`
+                `🔄 Migrated ${operation} wrong answer for ${wrongAnswer.question}: ${wrongAnswer.wrongAnswer}`
               );
             }
           });
         });
 
+        // Clean invalid entries for multiplication/division (need num1/num2)
+        if (
+          operation === GAME_CONFIG.OPERATIONS.MULTIPLICATION ||
+          operation === GAME_CONFIG.OPERATIONS.DIVISION
+        ) {
+          Object.keys(wrongAnswers).forEach((levelKey) => {
+            const original = wrongAnswers[levelKey] || [];
+            const cleaned = original.filter(
+              (w) => Number.isFinite(w.num1) && Number.isFinite(w.num2)
+            );
+            if (cleaned.length !== original.length) {
+              console.log(
+                `🧹 Cleaned ${
+                  original.length - cleaned.length
+                } invalid ${operation} wrong-answer entries from ${levelKey}`
+              );
+            }
+            wrongAnswers[levelKey] = cleaned;
+          });
+        }
+
         return wrongAnswers;
       }
     } catch (e) {
-      console.log("No wrong answers data found");
+      console.log(`No ${operation} wrong answers data found`);
     }
     return {};
   }
 
   /**
-   * Save wrong answers to localStorage
+   * Get combined wrong answers from all operations (for legacy compatibility)
    */
-  saveWrongAnswers() {
+  getCombinedWrongAnswers() {
+    const combined = {};
+
+    // Merge all operation-specific wrong answers
+    Object.values(GAME_CONFIG.OPERATIONS).forEach((operation) => {
+      if (operation === GAME_CONFIG.OPERATIONS.COMBINED) return; // Skip combined itself
+
+      const operationWrongAnswers =
+        this.wrongAnswersByOperation[operation] || {};
+      Object.keys(operationWrongAnswers).forEach((levelKey) => {
+        if (!combined[levelKey]) {
+          combined[levelKey] = [];
+        }
+        combined[levelKey].push(...operationWrongAnswers[levelKey]);
+      });
+    });
+
+    return combined;
+  }
+
+  /**
+   * Migrate legacy wrong answers to operation-specific storage
+   */
+  migrateLegacyWrongAnswers() {
     try {
+      const legacyData = localStorage.getItem(GAME_CONFIG.WRONG_ANSWERS_KEY);
+      if (!legacyData) return;
+
+      const legacyWrongAnswers = JSON.parse(legacyData);
+      let migratedCount = 0;
+
+      Object.keys(legacyWrongAnswers).forEach((levelKey) => {
+        legacyWrongAnswers[levelKey].forEach((wrongAnswer) => {
+          // Try to determine operation from the question format
+          let operation = GAME_CONFIG.OPERATIONS.MULTIPLICATION; // Default fallback
+
+          if (wrongAnswer.operation) {
+            operation = wrongAnswer.operation;
+          } else if (
+            wrongAnswer.question &&
+            wrongAnswer.question.includes("÷")
+          ) {
+            operation = GAME_CONFIG.OPERATIONS.DIVISION;
+          } else if (
+            wrongAnswer.question &&
+            wrongAnswer.question.includes("+")
+          ) {
+            operation = GAME_CONFIG.OPERATIONS.ADDITION;
+          } else if (
+            wrongAnswer.question &&
+            wrongAnswer.question.includes("-")
+          ) {
+            operation = GAME_CONFIG.OPERATIONS.SUBTRACTION;
+          }
+
+          // Add to operation-specific storage
+          if (!this.wrongAnswersByOperation[operation][levelKey]) {
+            this.wrongAnswersByOperation[operation][levelKey] = [];
+          }
+
+          // Check if already exists to avoid duplicates
+          const exists = this.wrongAnswersByOperation[operation][levelKey].find(
+            (w) =>
+              w.num1 === wrongAnswer.num1 &&
+              w.num2 === wrongAnswer.num2 &&
+              w.question === wrongAnswer.question
+          );
+
+          if (!exists) {
+            this.wrongAnswersByOperation[operation][levelKey].push(wrongAnswer);
+            migratedCount++;
+          }
+        });
+      });
+
+      if (migratedCount > 0) {
+        console.log(
+          `🔄 Migrated ${migratedCount} legacy wrong answers to operation-specific storage`
+        );
+
+        // Save the migrated data
+        this.saveAllWrongAnswers();
+
+        // Remove legacy data
+        localStorage.removeItem(GAME_CONFIG.WRONG_ANSWERS_KEY);
+        console.log(`🗑️ Removed legacy wrong answers storage`);
+      }
+    } catch (e) {
+      console.warn("Failed to migrate legacy wrong answers:", e);
+    }
+  }
+
+  /**
+   * Save wrong answers for a specific operation to localStorage
+   */
+  saveWrongAnswersForOperation(operation) {
+    try {
+      const storageKey = GAME_CONFIG.WRONG_ANSWERS_KEYS[operation];
+      if (!storageKey) {
+        console.warn(`No storage key defined for operation: ${operation}`);
+        return;
+      }
+
       localStorage.setItem(
-        GAME_CONFIG.WRONG_ANSWERS_KEY,
-        JSON.stringify(this.wrongAnswers)
+        storageKey,
+        JSON.stringify(this.wrongAnswersByOperation[operation] || {})
       );
     } catch (e) {
-      console.error("Failed to save wrong answers");
+      console.error(`Failed to save ${operation} wrong answers:`, e);
     }
+  }
+
+  /**
+   * Save all wrong answers for all operations to localStorage
+   */
+  saveAllWrongAnswers() {
+    Object.values(GAME_CONFIG.OPERATIONS).forEach((operation) => {
+      if (operation !== GAME_CONFIG.OPERATIONS.COMBINED) {
+        this.saveWrongAnswersForOperation(operation);
+      }
+    });
+
+    // Update legacy combined view
+    this.wrongAnswers = this.getCombinedWrongAnswers();
+  }
+
+  /**
+   * Legacy save method - now saves all operations
+   */
+  saveWrongAnswers() {
+    this.saveAllWrongAnswers();
   }
 
   /**
@@ -256,37 +428,72 @@ export class StatisticsManager {
   /**
    * Track a wrong answer for learning system
    */
-  trackWrongAnswer(level, question, wrongAnswer, correctAnswer) {
+  trackWrongAnswer(
+    level,
+    question,
+    wrongAnswer,
+    correctAnswer,
+    operation = null
+  ) {
+    // Determine operation if not provided
+    if (!operation) {
+      operation = question.operation || GAME_CONFIG.OPERATIONS.MULTIPLICATION;
+    }
+
+    // Validation based on operation type
+    if (
+      operation === GAME_CONFIG.OPERATIONS.MULTIPLICATION ||
+      operation === GAME_CONFIG.OPERATIONS.DIVISION
+    ) {
+      // Multiplication/Division require num1 and num2
+      if (!Number.isFinite(question.num1) || !Number.isFinite(question.num2)) {
+        return; // skip invalid entries
+      }
+    }
+
     const levelKey = `level_${level}`;
 
-    if (!this.wrongAnswers[levelKey]) {
-      this.wrongAnswers[levelKey] = [];
+    // Ensure operation storage exists
+    if (!this.wrongAnswersByOperation[operation]) {
+      this.wrongAnswersByOperation[operation] = {};
+    }
+
+    if (!this.wrongAnswersByOperation[operation][levelKey]) {
+      this.wrongAnswersByOperation[operation][levelKey] = [];
     }
 
     // Find existing wrong answer for this question
-    const existing = this.wrongAnswers[levelKey].find(
-      (w) => w.num1 === question.num1 && w.num2 === question.num2
-    );
+    let existing;
+    if (
+      operation === GAME_CONFIG.OPERATIONS.MULTIPLICATION ||
+      operation === GAME_CONFIG.OPERATIONS.DIVISION
+    ) {
+      existing = this.wrongAnswersByOperation[operation][levelKey].find(
+        (w) => w.num1 === question.num1 && w.num2 === question.num2
+      );
+    } else {
+      // For addition/subtraction, match by question text
+      existing = this.wrongAnswersByOperation[operation][levelKey].find(
+        (w) => w.question === question.question
+      );
+    }
 
     if (existing) {
       // Update existing entry
-      // Store ALL wrong answers, not just the latest one
       if (!existing.allWrongAnswers) {
-        existing.allWrongAnswers = [existing.wrongAnswer]; // Convert old single value to array
+        existing.allWrongAnswers = [existing.wrongAnswer];
       }
-      existing.allWrongAnswers.push(wrongAnswer); // Add new wrong answer to collection
-
-      existing.wrongAnswer = wrongAnswer; // Keep for backward compatibility
+      existing.allWrongAnswers.push(wrongAnswer);
+      existing.wrongAnswer = wrongAnswer;
       existing.timestamp = Date.now();
 
-      // If it was previously learned, reset status and increment attempts
       if (existing.learned) {
         existing.learned = false;
         existing.totalAttempts = (existing.totalAttempts || 1) + 1;
-        existing.correctAttempts = existing.correctAttempts || 0; // Keep track of correct attempts
+        existing.correctAttempts = existing.correctAttempts || 0;
         console.log(
-          `🔄 Previously learned question failed again: ${question.num1} × ${
-            question.num2
+          `🔄 Previously learned ${operation} question failed again: ${
+            existing.question
           } (attempt ${
             existing.totalAttempts
           }, wrong answers: [${existing.allWrongAnswers.join(", ")}])`
@@ -294,8 +501,8 @@ export class StatisticsManager {
       } else {
         existing.totalAttempts = (existing.totalAttempts || 1) + 1;
         console.log(
-          `❌ Updated wrong answer: ${question.num1} × ${
-            question.num2
+          `❌ Updated ${operation} wrong answer: ${
+            existing.question
           } (attempt ${
             existing.totalAttempts
           }, wrong answers: [${existing.allWrongAnswers.join(", ")}])`
@@ -304,12 +511,13 @@ export class StatisticsManager {
     } else {
       // Create new wrong answer entry
       const wrongData = {
-        question: `${question.num1} × ${question.num2}`,
+        question: question.question || `${question.num1} × ${question.num2}`,
         num1: question.num1,
         num2: question.num2,
         wrongAnswer,
-        allWrongAnswers: [wrongAnswer], // Start collection of all wrong answers
+        allWrongAnswers: [wrongAnswer],
         correctAnswer,
+        operation,
         timestamp: Date.now(),
         retryCount: 0,
         learned: false,
@@ -317,35 +525,97 @@ export class StatisticsManager {
         correctAttempts: 0,
       };
 
-      this.wrongAnswers[levelKey].push(wrongData);
+      // Add operation-specific data for division
+      if (operation === GAME_CONFIG.OPERATIONS.DIVISION) {
+        wrongData.dividend = question.dividend;
+        wrongData.divisor = question.divisor;
+        wrongData.quotient = question.quotient;
+      }
+
+      this.wrongAnswersByOperation[operation][levelKey].push(wrongData);
       console.log(
-        `❌ New wrong answer tracked: ${wrongData.question} = ${wrongData.correctAnswer}`
+        `❌ New ${operation} wrong answer tracked: ${wrongData.question} = ${wrongData.correctAnswer}`
       );
     }
 
     // Limit number of tracked wrong answers per level
     if (
-      this.wrongAnswers[levelKey].length > GAME_CONFIG.MAX_WRONG_ANSWERS_TRACKED
+      this.wrongAnswersByOperation[operation][levelKey].length >
+      GAME_CONFIG.MAX_WRONG_ANSWERS_TRACKED
     ) {
-      this.wrongAnswers[levelKey] = this.wrongAnswers[levelKey]
-        .sort((a, b) => b.timestamp - a.timestamp)
-        .slice(0, GAME_CONFIG.MAX_WRONG_ANSWERS_TRACKED);
+      this.wrongAnswersByOperation[operation][levelKey] =
+        this.wrongAnswersByOperation[operation][levelKey]
+          .sort((a, b) => b.timestamp - a.timestamp)
+          .slice(0, GAME_CONFIG.MAX_WRONG_ANSWERS_TRACKED);
     }
 
-    this.saveWrongAnswers();
+    // Save operation-specific wrong answers
+    this.saveWrongAnswersForOperation(operation);
+
+    // Update combined view for legacy compatibility
+    this.wrongAnswers = this.getCombinedWrongAnswers();
   }
 
   /**
    * Mark a wrong answer as learned (marks in ALL levels where it exists)
    */
-  markAsLearned(level, num1, num2) {
+  markAsLearned(level, num1, num2, operation = null) {
     let markedCount = 0;
 
-    // Mark as learned in ALL levels where this question exists
-    Object.keys(this.wrongAnswers).forEach((levelKey) => {
-      const wrongAnswer = this.wrongAnswers[levelKey].find(
-        (w) => w.num1 === num1 && w.num2 === num2
+    // If no operation provided, try to find it in any operation
+    const operationsToCheck = operation
+      ? [operation]
+      : Object.keys(this.wrongAnswersByOperation);
+
+    operationsToCheck.forEach((op) => {
+      if (!this.wrongAnswersByOperation[op]) return;
+
+      // Mark as learned in ALL levels where this question exists
+      Object.keys(this.wrongAnswersByOperation[op]).forEach((levelKey) => {
+        const wrongAnswer = this.wrongAnswersByOperation[op][levelKey].find(
+          (w) => w.num1 === num1 && w.num2 === num2
+        );
+
+        if (wrongAnswer && !wrongAnswer.learned) {
+          wrongAnswer.learned = true;
+          wrongAnswer.retryCount++;
+          wrongAnswer.correctAttempts = (wrongAnswer.correctAttempts || 0) + 1;
+          wrongAnswer.totalAttempts = wrongAnswer.totalAttempts || 1;
+
+          // Calculate accuracy for this specific question
+          const accuracy = Math.round(
+            (wrongAnswer.correctAttempts / wrongAnswer.totalAttempts) * 100
+          );
+
+          markedCount++;
+          console.log(
+            `✅ ${op} marked as learned in ${levelKey}: ${wrongAnswer.question} (accuracy: ${accuracy}%, attempts: ${wrongAnswer.totalAttempts})`
+          );
+        }
+      });
+    });
+
+    if (markedCount > 0) {
+      this.saveAllWrongAnswers();
+      console.log(
+        `📚 Total marked as learned: ${markedCount} instances of ${num1} × ${num2}`
       );
+    }
+  }
+
+  /**
+   * Mark a wrong answer as learned by question text (for addition/subtraction)
+   */
+  markAsLearnedByQuestion(level, questionText, operation) {
+    let markedCount = 0;
+
+    if (!this.wrongAnswersByOperation[operation]) return markedCount;
+
+    // Mark as learned in ALL levels where this question exists
+    Object.keys(this.wrongAnswersByOperation[operation]).forEach((levelKey) => {
+      const wrongAnswer = this.wrongAnswersByOperation[operation][
+        levelKey
+      ].find((w) => w.question === questionText);
 
       if (wrongAnswer && !wrongAnswer.learned) {
         wrongAnswer.learned = true;
@@ -360,60 +630,112 @@ export class StatisticsManager {
 
         markedCount++;
         console.log(
-          `✅ Marked as learned in ${levelKey}: ${num1} × ${num2} (accuracy: ${accuracy}%, attempts: ${wrongAnswer.totalAttempts})`
+          `✅ ${operation} marked as learned in ${levelKey}: ${wrongAnswer.question} (accuracy: ${accuracy}%, attempts: ${wrongAnswer.totalAttempts})`
         );
       }
     });
 
     if (markedCount > 0) {
-      this.saveWrongAnswers();
+      this.saveAllWrongAnswers();
       console.log(
-        `📚 Total marked as learned: ${markedCount} instances of ${num1} × ${num2}`
+        `📚 Total marked as learned: ${markedCount} instances of "${questionText}"`
       );
     }
+
+    return markedCount;
   }
 
   /**
-   * Get unlearned wrong answers for a level (includes level_0 daily challenge questions for specific table)
+   * Get unlearned wrong answers for a level and operation
    */
-  getUnlearnedWrongAnswers(level) {
+  getUnlearnedWrongAnswers(level, operation = null) {
     const levelKey = `level_${level}`;
     let unlearnedAnswers = [];
 
-    // Get unlearned wrong answers for the specific level
-    if (this.wrongAnswers[levelKey]) {
-      unlearnedAnswers = this.wrongAnswers[levelKey]
-        .filter((w) => !w.learned)
-        .sort((a, b) => b.timestamp - a.timestamp); // Most recent first
+    if (operation && operation !== GAME_CONFIG.OPERATIONS.COMBINED) {
+      // Get unlearned wrong answers for specific operation
+      if (
+        this.wrongAnswersByOperation[operation] &&
+        this.wrongAnswersByOperation[operation][levelKey]
+      ) {
+        unlearnedAnswers = this.wrongAnswersByOperation[operation][levelKey]
+          .filter((w) => !w.learned)
+          .sort((a, b) => b.timestamp - a.timestamp);
+      }
+
+      // For non-daily challenge levels, also include level_0 questions that match this table
+      if (
+        level !== 0 &&
+        this.wrongAnswersByOperation[operation] &&
+        this.wrongAnswersByOperation[operation]["level_0"]
+      ) {
+        const dailyChallengeQuestions = this.wrongAnswersByOperation[operation][
+          "level_0"
+        ]
+          .filter((w) => !w.learned && (w.num1 === level || w.num2 === level))
+          .sort((a, b) => b.timestamp - a.timestamp);
+
+        unlearnedAnswers = [...unlearnedAnswers, ...dailyChallengeQuestions];
+      }
+    } else {
+      // Combined operation or legacy - get from all operations
+      Object.keys(this.wrongAnswersByOperation).forEach((op) => {
+        if (this.wrongAnswersByOperation[op][levelKey]) {
+          const opUnlearned = this.wrongAnswersByOperation[op][levelKey]
+            .filter((w) => !w.learned)
+            .sort((a, b) => b.timestamp - a.timestamp);
+          unlearnedAnswers.push(...opUnlearned);
+        }
+
+        // Include level_0 questions for non-daily challenge levels
+        if (level !== 0 && this.wrongAnswersByOperation[op]["level_0"]) {
+          const dailyChallengeQuestions = this.wrongAnswersByOperation[op][
+            "level_0"
+          ]
+            .filter((w) => !w.learned && (w.num1 === level || w.num2 === level))
+            .sort((a, b) => b.timestamp - a.timestamp);
+          unlearnedAnswers.push(...dailyChallengeQuestions);
+        }
+      });
     }
 
-    // For non-daily challenge levels, also include level_0 questions that match this table
-    if (level !== 0 && this.wrongAnswers["level_0"]) {
-      const dailyChallengeQuestions = this.wrongAnswers["level_0"]
-        .filter((w) => !w.learned && (w.num1 === level || w.num2 === level))
-        .sort((a, b) => b.timestamp - a.timestamp);
-
-      unlearnedAnswers = [...unlearnedAnswers, ...dailyChallengeQuestions];
-    }
-
-    return unlearnedAnswers;
+    return unlearnedAnswers.sort((a, b) => b.timestamp - a.timestamp);
   }
 
   /**
-   * Get all wrong answers for daily challenge mix (from all levels 0-10)
+   * Get all wrong answers for daily challenge mix (from all levels 0-10) for specific operation or combined
    */
-  getAllUnlearnedWrongAnswers() {
+  getAllUnlearnedWrongAnswers(operation = null) {
     const allWrong = [];
 
-    // Include unlearned wrong answers from all levels (0-10) for daily challenge
-    for (let level = 0; level <= 10; level++) {
-      const levelKey = `level_${level}`;
-      if (this.wrongAnswers[levelKey]) {
-        const levelWrong = this.wrongAnswers[levelKey].filter(
-          (w) => !w.learned
-        );
-        allWrong.push(...levelWrong);
+    if (operation && operation !== GAME_CONFIG.OPERATIONS.COMBINED) {
+      // Get unlearned wrong answers from specific operation only
+      if (this.wrongAnswersByOperation[operation]) {
+        for (let level = 0; level <= 10; level++) {
+          const levelKey = `level_${level}`;
+          if (this.wrongAnswersByOperation[operation][levelKey]) {
+            const levelWrong = this.wrongAnswersByOperation[operation][
+              levelKey
+            ].filter((w) => !w.learned);
+            allWrong.push(...levelWrong);
+          }
+        }
       }
+    } else {
+      // Combined operation - get from all operations
+      Object.keys(this.wrongAnswersByOperation).forEach((op) => {
+        if (this.wrongAnswersByOperation[op]) {
+          for (let level = 0; level <= 10; level++) {
+            const levelKey = `level_${level}`;
+            if (this.wrongAnswersByOperation[op][levelKey]) {
+              const levelWrong = this.wrongAnswersByOperation[op][
+                levelKey
+              ].filter((w) => !w.learned);
+              allWrong.push(...levelWrong);
+            }
+          }
+        }
+      });
     }
 
     return allWrong.sort((a, b) => b.timestamp - a.timestamp);
