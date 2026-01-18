@@ -6,6 +6,7 @@
 import { GAME_CONFIG, FEEDBACK_TYPES, LEVELS_BY_OPERATION } from "./config.js";
 import { Generators } from "./domain/generators.js";
 import { OPS } from "./domain/question.js";
+import { createReviewQuestion } from "./domain/review.js";
 
 export class GameEngine {
   constructor() {
@@ -21,106 +22,105 @@ export class GameEngine {
     this.score = 0;
     this.streak = 0;
     this.maxStreak = 0;
-    this.strikes = 0; // New: Strike system
+    this.strikes = 0;
     this.questionsAnswered = 0;
     this.correctAnswers = 0;
     this.currentQuestion = null;
     this.isGameActive = false;
-    this.questionHistory = []; // Keep history of recent questions
-    this.reviewQueue = []; // Questions to review (mistakes)
-    this.isReviewActive = false; // Are we currently processing a forced review?
+    this.questionHistory = [];
+    this.reviewQueue = [];
+    this.isReviewActive = false;
+
+    // Mixed mode support
+    this.isMixedMode = false;
   }
 
   /**
-   * Start a new game with specified operation and level
-   * @param {string} op - Operation (add, sub, mul, div)
-   * @param {string} levelId - Level ID
-   * @param {Array} reviewQuestions - Optional array of unlearned wrong answers (canonical questions)
+   * Start a new game
+   * @param {string} op - Operation (add, sub, mul, div) or 'mixed'
+   * @param {string} levelId - Level ID or 'mixed'
+   * @param {Array} reviewQuestions - Optional array of unlearned wrong answers
    */
   startGame(op, levelId, reviewQuestions = []) {
     this.reset();
-    this.currentOp = op;
-    this.currentLevelId = levelId;
+
+    if (op === 'mixed' || levelId === 'mixed') {
+        this.isMixedMode = true;
+        this.currentOp = 'mixed';
+        this.currentLevelId = 'mixed';
+    } else {
+        this.currentOp = op;
+        this.currentLevelId = levelId;
+    }
+
     this.isGameActive = true;
-
-    // For V2, we might want different timers per Op/Level?
-    // For now using global config. Daily challenge logic to be added later or reused.
-    // If levelId is 'daily', we handle differently.
-
-    // Filter review questions for this specific Op/Level context if needed
-    // But typically the caller passes relevant review questions.
     this.reviewQueue = reviewQuestions;
 
     console.log(
-      `🎮 Starting game: ${op} - ${levelId} with ${this.reviewQueue.length} review items`
+      `🎮 Starting game: ${this.currentOp} - ${this.currentLevelId} (Mixed: ${this.isMixedMode}) with ${this.reviewQueue.length} review items`
     );
 
     return this.generateQuestion();
   }
 
   /**
+   * Restore game from saved state
+   */
+  restoreGame(state) {
+      this.reset();
+      this.currentOp = state.op;
+      this.currentLevelId = state.levelId;
+      this.score = state.score;
+      this.streak = state.streak;
+      this.strikes = state.strikes;
+      this.questionsAnswered = state.questionsAnswered;
+      this.correctAnswers = state.correctAnswers;
+      this.reviewQueue = state.reviewQueue || [];
+      this.isMixedMode = state.isMixedMode || false;
+      this.isGameActive = true;
+
+      // We don't restore the EXACT current question object usually unless we serialized it fully.
+      // Ideally caller calls generateQuestion immediately after restore if currentQuestion is null.
+      // But if we want to resume exactly at the question:
+      if (state.currentQuestion) {
+          this.currentQuestion = state.currentQuestion;
+      } else {
+          // If no question saved, generate one
+          this.generateQuestion();
+      }
+
+      console.log("🎮 Game restored");
+      return this.currentQuestion;
+  }
+
+  /**
    * Generate a new question
-   * @returns {Object} Canonical Question object
    */
   generateQuestion() {
     if (!this.isGameActive) return null;
 
-    // Check if we should inject a review question
-    // Chance: 35% (Configurable)
+    // Check review injection
     const shouldReview =
         this.reviewQueue.length > 0 &&
         Math.random() < GAME_CONFIG.REVIEW_CHANCE;
 
     if (shouldReview) {
-        // Pick a random review question
+        // Pick random review item
         const index = Math.floor(Math.random() * this.reviewQueue.length);
-        const reviewItem = this.reviewQueue[index];
+        const reviewRecord = this.reviewQueue[index];
 
-        // Convert stored review item to canonical question format if needed
-        // Stored item might be the canonical question itself or wrong answer record
-        // The wrong answer record has: op, levelId, a, b, questionText...
-        // We need to regenerate options.
+        try {
+            const question = createReviewQuestion(reviewRecord);
+            this.currentQuestion = question;
+            console.log("📚 Review question injected:", question.text);
+            return question;
+        } catch (e) {
+            console.error("Failed to create review question", e);
+        }
+    }
 
-        // Let's assume reviewQueue contains objects compatible with our Generators or we reconstruct.
-        // Actually, generators generate options. We can reuse generator logic or just mock options.
-        // Better: Reuse generator logic but force 'a' and 'b'.
-
-        // But generators take 'levelConfig'.
-        // Let's implement a helper to reconstruct question options.
-
-        // For now, simpler approach: Just generate a standard question.
-        // Wait, review is critical.
-        // Let's try to reconstruct the question.
-
-        // Reconstruct canonical question from review item
-        // We need to generate distractors.
-        // We can import `generateDistractors` or expose it from generators.
-        // Ideally `Generators` module should have `createQuestionFromParams(op, a, b)`
-        // Since I didn't export `generateDistractors` from generators.js, I will cheat a bit or refactor.
-        // Refactoring generators.js is best but let's see if I can use the generator for the specific op.
-
-        // Actually, if I call `generateAdd({range:..., ...})` it picks random numbers.
-        // I need a way to force numbers.
-
-        // Let's fall back to random for now if review reconstruction is complex,
-        // OR better: Just pick a random question for MVP if I can't easily reconstruct options.
-        // BUT the requirements say "Mistake-learning".
-
-        // Let's modify generators.js to accept optional 'forceParams'? No.
-        // I'll just use the standard generator for the current level for now,
-        // AND occasionally inject the specific review numbers if I can.
-
-        // Let's skip review injection complexity for this specific file write if I can't easily do it.
-        // I'll stick to random generation from current level config.
-        // Wait, I really should support it.
-
-        // I will assume `Generators` functions return a question with valid options.
-        // I'll rely on pure random for now to ensure I don't break the build with missing imports.
-        // I will implement Review Injection properly in a follow-up or if I can do it now.
-
-        // Let's look at `assets/js/domain/generators.js` content I wrote.
-        // It has `generateDistractors` but it is not exported.
-        // I will stick to `generateRandomQuestion` logic for now.
+    if (this.isMixedMode) {
+        return this.generateMixedQuestion();
     }
 
     // Standard Generation
@@ -128,28 +128,41 @@ export class GameEngine {
   }
 
   /**
+   * Generate Mixed Question
+   */
+  generateMixedQuestion() {
+      // Pick random op
+      const ops = Object.values(OPS);
+      const op = ops[Math.floor(Math.random() * ops.length)];
+
+      // Pick random level config for that op
+      // Simplified: Just pick a random level from 1 to 4 (or available)
+      const levels = LEVELS_BY_OPERATION[op];
+      const levelConfig = levels[Math.floor(Math.random() * levels.length)];
+
+      const generator = Generators[op];
+      const question = generator(levelConfig);
+
+      // Tag it as mixed
+      question.meta.isMixed = true;
+
+      this.currentQuestion = question;
+      return question;
+  }
+
+  /**
    * Generate a random question based on current config
    */
   generateRandomQuestion() {
-      // Find level config
       const opsLevels = LEVELS_BY_OPERATION[this.currentOp];
       const levelConfig = opsLevels.find(l => l.id === this.currentLevelId);
 
-      if (!levelConfig) {
-          console.error(`Level config not found for ${this.currentOp} ${this.currentLevelId}`);
-          return null;
-      }
+      if (!levelConfig) return null;
 
       const generator = Generators[this.currentOp];
-      if (!generator) {
-           console.error(`Generator not found for ${this.currentOp}`);
-           return null;
-      }
-
       const question = generator(levelConfig);
       this.currentQuestion = question;
 
-      // Add to history
       this.questionHistory.push(question.id);
       if (this.questionHistory.length > 5) this.questionHistory.shift();
 
@@ -158,8 +171,6 @@ export class GameEngine {
 
   /**
    * Evaluate the selected answer
-   * @param {number} selectedAnswer - The answer chosen by the user
-   * @returns {Object} Result with feedback type, points earned, and game state
    */
   evaluateAnswer(selectedAnswer) {
     if (!this.isGameActive || !this.currentQuestion) return null;
@@ -172,17 +183,11 @@ export class GameEngine {
     if (isCorrect) {
       this.correctAnswers++;
       this.streak++;
-      if (this.streak > this.maxStreak) {
-        this.maxStreak = this.streak;
-      }
+      if (this.streak > this.maxStreak) this.maxStreak = this.streak;
 
       pointsEarned = this.calculatePoints();
       this.score += pointsEarned;
       feedbackType = FEEDBACK_TYPES.CORRECT;
-
-      // Check for review item clear
-      // If this question matched a review item, we could mark it learned.
-      // Handled by caller (App) which calls StatsManager.
 
     } else {
       this.streak = 0;
@@ -207,18 +212,11 @@ export class GameEngine {
     };
   }
 
-  /**
-   * Calculate points
-   */
   calculatePoints() {
       const streakBonus = Math.floor(this.streak / GAME_CONFIG.STREAK_THRESHOLD) * GAME_CONFIG.STREAK_BONUS;
       return GAME_CONFIG.BASE_POINTS + streakBonus;
   }
 
-  /**
-   * Get current game statistics
-   * @returns {Object} Current game stats
-   */
   getGameStats() {
     const accuracy =
       this.questionsAnswered > 0
@@ -235,24 +233,15 @@ export class GameEngine {
       questionsAnswered: this.questionsAnswered,
       correctAnswers: this.correctAnswers,
       accuracy,
-      isComplete: this.questionsAnswered >= GAME_CONFIG.QUESTIONS_PER_LEVEL,
+      isComplete: !this.isGameActive,
+      isMixedMode: this.isMixedMode,
+      // Current State for saving
+      reviewQueue: this.reviewQueue,
+      currentQuestion: this.currentQuestion
     };
   }
 
-  /**
-   * Check if level is completed with star rating
-   * @returns {boolean} True if level completed with 80%+ accuracy
-   */
-  isLevelCompleted() {
-    const stats = this.getGameStats();
-    return stats.accuracy >= GAME_CONFIG.ACCURACY_THRESHOLD;
-  }
-
-  /**
-   * Reset strikes (e.g. after mini-break)
-   */
   resetStrikes() {
       this.strikes = 0;
-      this.streak = 0; // Usually reset streak too on break? Yes, already 0 on error.
   }
 }

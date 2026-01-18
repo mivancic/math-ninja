@@ -29,7 +29,7 @@ class MathNinjaApp {
     this.pausedGameState = null;
 
     // UI State
-    this.selectedOp = null; // 'add', 'sub', 'mul', 'div'
+    this.selectedOp = null; // 'add', 'sub', 'mul', 'div', 'mixed'
 
     // Initialize app
     this.init();
@@ -65,6 +65,26 @@ class MathNinjaApp {
              this.audioManager.playUISound("click");
          }
       });
+
+      // Resume Modal Handlers
+      document.getElementById('btnResumeYes').addEventListener('click', () => {
+          this.resumeGame();
+          document.getElementById('resumeModal').style.display = 'none';
+      });
+
+      document.getElementById('btnResumeNo').addEventListener('click', () => {
+          this.statisticsManager.clearGameState(this.selectedOp);
+          // If we came from Level Select, we don't have levelId context here for "New Game"
+          // unless we store pendingLevelId.
+          // Better UX: "New Game" just closes modal and lets user pick level (if in level select)
+          // or starts specific level if we have context.
+          // Since resume check is usually before level select or after clicking an op?
+          // Let's implement Resume Check when clicking Op Button.
+          // If resume accepted -> game. If not -> show level select.
+
+          document.getElementById('resumeModal').style.display = 'none';
+          this.showLevelSelect();
+      });
   }
 
   /**
@@ -74,7 +94,11 @@ class MathNinjaApp {
       switch(action) {
           case 'select-op':
               this.selectedOp = target.dataset.op;
-              this.showLevelSelect();
+              this.checkResumeAndNavigate();
+              break;
+          case 'start-mixed':
+              this.selectedOp = 'mixed';
+              this.checkResumeAndNavigate();
               break;
           case 'show-home':
               this.showHome();
@@ -108,6 +132,49 @@ class MathNinjaApp {
               this.startGame(levelId);
               break;
       }
+  }
+
+  /**
+   * Check for saved game and prompt resume or show level select
+   */
+  checkResumeAndNavigate() {
+      const savedState = this.statisticsManager.loadGameState(this.selectedOp);
+
+      if (savedState) {
+          // Show Resume Modal
+          document.getElementById('resumeModal').style.display = 'flex';
+      } else {
+          // If Mixed, start immediately (no level select)
+          if (this.selectedOp === 'mixed') {
+              this.startGame('mixed');
+          } else {
+              this.showLevelSelect();
+          }
+      }
+  }
+
+  resumeGame() {
+      const savedState = this.statisticsManager.loadGameState(this.selectedOp);
+      if (!savedState) return;
+
+      this.switchScreen(SCREEN_NAMES.GAME);
+      this.visualEffects.resetEffects();
+
+      const currentQuestion = this.gameEngine.restoreGame(savedState);
+
+      // Update UI
+      if (this.selectedOp === 'mixed') {
+          document.getElementById("currentLevelDisplay").textContent = "Dnevni Izazov (Mix)";
+      } else {
+          const levels = LEVELS_BY_OPERATION[this.selectedOp];
+          const levelConfig = levels.find(l => l.id === this.gameEngine.currentLevelId);
+          document.getElementById("currentLevelDisplay").textContent = levelConfig ? levelConfig.label : this.gameEngine.currentLevelId;
+      }
+
+      this.updateStrikesDisplay(savedState.strikes);
+      this.updateGameDisplay();
+      this.displayQuestion(currentQuestion);
+      this.startTimer();
   }
 
   /**
@@ -176,13 +243,73 @@ class MathNinjaApp {
     this.visualEffects.resetEffects();
     this.switchScreen(SCREEN_NAMES.HOME);
     this.audioManager.startBackgroundMusic();
+
+    // Update Global Stats on Home Screen
+    // Assuming we have total score in detailed stats? Yes, I added logic. But wait, `detailedStats` in `StatisticsManager` didn't have `totalScore`.
+    // It has `opsProgress`. I need to sum it up.
+    // Or I can use `this.statisticsManager.getComprehensiveStats()` if I update it to include score.
+    // Let's calculate on the fly.
+
+    const stats = this.statisticsManager.detailedStats;
+    let totalScore = 0;
+    Object.values(stats.opsProgress).forEach(op => {
+        Object.values(op).forEach(l => {
+            totalScore += l.bestScore || 0; // Simplified total score logic (sum of best scores)
+            // Or should we track cumulative total score separately?
+            // V1 had `stats.totalScore`.
+            // Let's use `stats.totalScore` if available, or just calculate.
+            // My previous refactor of stats manager might have missed explicit totalScore accumulator for V2 actions.
+            // `updateLevelProgress` updates `bestScore`.
+            // Let's just sum best scores for now as "Total Score".
+        });
+    });
+
+    document.getElementById("globalTotalScore").textContent = totalScore;
+
+    // Best Badge
+    const badges = stats.badges || [];
+    const bestBadgeId = badges.length > 0 ? badges[badges.length - 1] : null;
+    const bestBadge = bestBadgeId ? Object.values(BADGES).find(b => b.id === bestBadgeId) : null;
+    document.getElementById("globalBestBadge").textContent = bestBadge ? bestBadge.icon : "-";
+
+    // Update Op Progress Indicators
+    this.updateOpProgress("add");
+    this.updateOpProgress("sub");
+    this.updateOpProgress("mul");
+    this.updateOpProgress("div");
+  }
+
+  updateOpProgress(op) {
+      const el = document.getElementById(`progress-${op}`);
+      if (!el) return;
+
+      const opStats = this.statisticsManager.detailedStats.opsProgress[op] || {};
+      const levels = LEVELS_BY_OPERATION[op];
+
+      // Calculate current level (highest completed + 1)
+      let highestCompletedIndex = -1;
+      let totalStars = 0;
+
+      levels.forEach((l, idx) => {
+          const lStats = opStats[l.id];
+          if (lStats && lStats.completed) {
+              highestCompletedIndex = idx;
+          }
+          if (lStats) totalStars += lStats.stars;
+      });
+
+      const currentLevelIndex = Math.min(highestCompletedIndex + 1, levels.length - 1);
+      const currentLevelLabel = levels[currentLevelIndex].label; // e.g. "Do 20"
+
+      // Display: "L2 - 5⭐" or similar
+      el.textContent = `L${currentLevelIndex + 1} • ${totalStars}⭐`;
   }
 
   /**
    * Show Level Select
    */
   showLevelSelect() {
-    if (!this.selectedOp) {
+    if (!this.selectedOp || this.selectedOp === 'mixed') {
         this.showHome();
         return;
     }
@@ -245,11 +372,19 @@ class MathNinjaApp {
     this.visualEffects.resetEffects();
     this.switchScreen(SCREEN_NAMES.GAME);
 
+    // Clear any previous saved game for this op since we are starting fresh
+    this.statisticsManager.clearGameState(this.selectedOp);
+
     // Get unlearned wrong answers for review injection
     // For V2: We can pass all unlearned for this OP, or specific to level
     // PRD says "Mistake learning tracking errors... re-introducing them".
     // We'll pass relevant unlearned questions.
-    const unlearned = this.statisticsManager.getUnlearnedWrongAnswers(levelId);
+    let unlearned = [];
+    if (levelId === 'mixed') {
+        unlearned = this.statisticsManager.getAllUnlearnedWrongAnswers();
+    } else {
+        unlearned = this.statisticsManager.getUnlearnedWrongAnswers(levelId);
+    }
 
     console.log(`🎯 Starting ${this.selectedOp} ${levelId} with ${unlearned.length} review items`);
 
@@ -260,9 +395,13 @@ class MathNinjaApp {
     );
 
     // Update UI
-    const levels = LEVELS_BY_OPERATION[this.selectedOp];
-    const levelConfig = levels.find(l => l.id === levelId);
-    document.getElementById("currentLevelDisplay").textContent = levelConfig ? levelConfig.label : levelId;
+    if (levelId === 'mixed') {
+        document.getElementById("currentLevelDisplay").textContent = "Dnevni Izazov (Mix)";
+    } else {
+        const levels = LEVELS_BY_OPERATION[this.selectedOp];
+        const levelConfig = levels.find(l => l.id === levelId);
+        document.getElementById("currentLevelDisplay").textContent = levelConfig ? levelConfig.label : levelId;
+    }
 
     // Inject Hearts
     this.updateStrikesDisplay(0);
@@ -270,21 +409,6 @@ class MathNinjaApp {
     // Start first question
     this.displayQuestion(question);
     this.updateGameDisplay();
-    // this.startTimer(); // Optional per question or total? PRD says "Odgovori u zadanom vremenu".
-    // I will implement per-question timer or total game timer? V1 had total game timer (15s).
-    // PRD mentions "Timer bar (fills down)".
-    // Let's stick to total timer for a "Round" of 10 questions for now, or per question?
-    // "After X questions -> results".
-    // V1 had 15s timer per GAME? Or per question?
-    // V1 Config: TIMER_DURATION: 15000. It seems it was per game or reset per question?
-    // V1 GameEngine had `handleTimeout`.
-    // Let's implement Per-Question Timer for V2 as it makes more sense for "10 questions round".
-    // Wait, V1 had `TIMER_DURATION` and `startTimer`. It seems it was a global timer for the round?
-    // But `evaluateAnswer` checks `isGameComplete` (questions >= 10).
-    // If timer runs out, `handleTimeout` is called.
-    // Let's assume Per-Question timer for better UX in V2 (since kids need time to think, but not infinite).
-    // Actually, "Score + bonus for streak" usually implies speed.
-    // Let's stick to a generous Per-Question timer (e.g. 15s) reset on each question.
     this.startTimer();
   }
 
@@ -295,11 +419,6 @@ class MathNinjaApp {
     if (!question) return;
 
     let text = question.text;
-    // Check if it's a review (not easily flagged in canonical unless meta has it)
-    // Engine generates it. If engine injected review, it should be in meta?
-    // I didn't add `isReview` flag to return of `generateQuestion` in GameEngine explicitly.
-    // But GameEngine uses random gen mostly now.
-
     document.getElementById("questionText").textContent = text;
 
     const answersContainer = document.getElementById("answerButtons");
@@ -336,13 +455,6 @@ class MathNinjaApp {
        buttonElement.classList.add("correct-answer");
        this.showFeedback("✓", "correct");
 
-       // Mark learned if applicable
-       // If this was a review question (we need to know), we call markAsLearned.
-       // Since we didn't explicitly flag review questions in this iteration,
-       // we can just call markAsLearned for ANY correct answer?
-       // No, that might mark random questions as learned (which is fine, they are learned).
-       // But `markAsLearned` only affects existing WrongAnswer entries.
-       // So it's safe to call it always on correct answer!
        this.statisticsManager.markAsLearned(currentQuestion);
 
     } else {
@@ -365,6 +477,9 @@ class MathNinjaApp {
     this.updateStrikesDisplay(result.strikes);
     this.visualEffects.updateStreakEffects(result.gameStats.streak);
 
+    // Save State on every move
+    this.saveCurrentGameState();
+
     // Check Strikes
     if (result.strikes >= GAME_CONFIG.STRIKES_ALLOWED) {
         setTimeout(() => this.triggerMiniBreak(), 1000);
@@ -382,6 +497,15 @@ class MathNinjaApp {
     }
   }
 
+  saveCurrentGameState() {
+      // Don't save if game over
+      if (!this.gameEngine.isGameActive) {
+          this.statisticsManager.clearGameState(this.selectedOp);
+          return;
+      }
+      this.statisticsManager.saveGameState(this.selectedOp, this.gameEngine.getGameStats());
+  }
+
   /**
    * Trigger Mini Break
    */
@@ -389,8 +513,7 @@ class MathNinjaApp {
       const overlay = document.getElementById('miniBreakOverlay');
       overlay.style.display = 'flex';
       this.gameEngine.resetStrikes(); // Reset logic strikes
-      // Note: We might want to inject a review question here as per PRD "optionally inject 1 review question".
-      // For now, just a pause.
+      this.saveCurrentGameState(); // Save state with reset strikes
   }
 
   /**
@@ -424,9 +547,6 @@ class MathNinjaApp {
   }
 
   handleTimeout() {
-      // Treat as incorrect
-      // Reuse logic from selectAnswer but no button
-      // Mock logic
       const result = this.gameEngine.evaluateAnswer(-999); // Invalid answer
       const currentQuestion = this.gameEngine.currentQuestion;
 
@@ -435,7 +555,6 @@ class MathNinjaApp {
 
       this.statisticsManager.trackWrongAnswer(currentQuestion, -1);
 
-      // Highlight correct
       const allButtons = document.querySelectorAll(".answer-button");
       allButtons.forEach(btn => {
            if(parseInt(btn.textContent) === result.correctAnswer) {
@@ -445,6 +564,8 @@ class MathNinjaApp {
 
       this.updateGameDisplay();
       this.updateStrikesDisplay(result.strikes);
+
+      this.saveCurrentGameState();
 
       if (result.strikes >= GAME_CONFIG.STRIKES_ALLOWED) {
         setTimeout(() => this.triggerMiniBreak(), 1000);
@@ -508,19 +629,30 @@ class MathNinjaApp {
     this.clearTimer();
     this.audioManager.playGameEvent("level-complete");
 
+    // Clear saved game
+    this.statisticsManager.clearGameState(this.selectedOp);
+
     // Check Badges
     const newBadges = this.badgeSystem.checkBadges(gameStats);
 
-    // Update Level Progress
-    const performance = getPerformanceTier(gameStats.accuracy);
-    this.statisticsManager.updateLevelProgress(
-        gameStats.op,
-        gameStats.levelId,
-        performance.stars,
-        gameStats.score
-    );
-
-    this.showLevelComplete(gameStats, performance, newBadges);
+    // Update Level Progress (only if not mixed, or maybe we track mixed scores separate?)
+    // Currently tracking per levelId. If levelId='mixed', we might need to handle it.
+    // Let's assume we don't track 'stars' for Mixed mode in the same way, or just don't save progress map for 'mixed'.
+    // Or we can save it under 'mixed' op.
+    if (gameStats.op !== 'mixed') {
+        const performance = getPerformanceTier(gameStats.accuracy);
+        this.statisticsManager.updateLevelProgress(
+            gameStats.op,
+            gameStats.levelId,
+            performance.stars,
+            gameStats.score
+        );
+        this.showLevelComplete(gameStats, performance, newBadges);
+    } else {
+        // Just show results for mixed
+        const performance = getPerformanceTier(gameStats.accuracy);
+        this.showLevelComplete(gameStats, performance, newBadges);
+    }
   }
 
   showLevelComplete(gameStats, performance, newBadges) {
@@ -555,7 +687,12 @@ class MathNinjaApp {
   }
 
   retryLevel() {
-      this.startGame(this.gameEngine.currentLevelId);
+      // If mixed, just start new mixed
+      if (this.gameEngine.currentOp === 'mixed') {
+          this.startGame('mixed');
+      } else {
+          this.startGame(this.gameEngine.currentLevelId);
+      }
   }
 
   showStats() {
@@ -566,6 +703,8 @@ class MathNinjaApp {
       // Calculate total stats
       let totalStars = 0;
       let completedLevels = 0;
+      let bestMixedScore = 0;
+
       Object.values(stats.opsProgress).forEach(op => {
           Object.values(op).forEach(l => {
               totalStars += l.stars;
@@ -592,7 +731,34 @@ class MathNinjaApp {
                 <p>${this.statisticsManager.getTotalUnlearnedCount()}</p>
             </div>
         </div>
+
+        <h3 style="margin-top:20px;">Napredak po Operacijama</h3>
+        ${this.renderOpStats('add', 'Zbrajanje')}
+        ${this.renderOpStats('sub', 'Oduzimanje')}
+        ${this.renderOpStats('mul', 'Množenje')}
+        ${this.renderOpStats('div', 'Dijeljenje')}
       `;
+  }
+
+  renderOpStats(op, label) {
+      const stats = this.statisticsManager.detailedStats.opsProgress[op] || {};
+      const levels = LEVELS_BY_OPERATION[op];
+      let html = `<div class="stats-section"><h4>${label}</h4><div class="level-progress-grid">`;
+
+      levels.forEach(l => {
+          const lStat = stats[l.id] || { stars: 0 };
+          html += `
+            <div class="level-progress-item">
+                <h5>${l.label}</h5>
+                <div class="level-progress-stars">
+                    ${'⭐'.repeat(lStat.stars)}${'☆'.repeat(3 - lStat.stars)}
+                </div>
+            </div>
+          `;
+      });
+
+      html += `</div></div>`;
+      return html;
   }
 
   showBadges() {
@@ -629,6 +795,7 @@ class MathNinjaApp {
   }
 
   pauseAndExit() {
+      this.saveCurrentGameState();
       this.showHome();
   }
 

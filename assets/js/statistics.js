@@ -48,10 +48,6 @@ export class StatisticsManager {
                    }
                    return item;
                });
-               // delete this.wrongAnswers[key]; // Keep for safety? Or delete? PRD says "Old records still show up under multiplication".
-               // If I keep it, it will duplicate if I run migration again?
-               // I check `if (!this.wrongAnswers[newKey])` so it's safe to run multiple times if I don't delete old key.
-               // But cleaner to delete old key to avoid confusion.
                delete this.wrongAnswers[key];
                migrated = true;
            }
@@ -112,6 +108,9 @@ export class StatisticsManager {
       dailyChallengeRuns: [], // array of { date, runNumber, score, mistakes, accuracy, completedTime }
       dailyChallengeToday: 0, // number of runs today
 
+      // Saved active games for "Resume" functionality
+      activeGames: {}, // { 'add': gameState, 'mul': gameState... }
+
       // V2 Stats
       opsProgress: {
           add: {}, // levelId -> { stars: 0, completed: false, bestScore: 0 }
@@ -157,11 +156,8 @@ export class StatisticsManager {
    */
   startSession() {
     this.currentSessionStart = Date.now();
-
-    // Reset daily challenge runs if new day
     this.resetDailyRuns();
 
-    // Track daily launch
     const today = new Date().toDateString();
     if (!this.detailedStats.dailyLaunches[today]) {
       this.detailedStats.dailyLaunches[today] = 0;
@@ -169,11 +165,8 @@ export class StatisticsManager {
     this.detailedStats.dailyLaunches[today]++;
     this.detailedStats.sessionCount++;
 
-    // Start playtime tracking
     this.startPlaytimeTracking();
-
     this.saveDetailedStats();
-    console.log("📊 Statistics session started");
   }
 
   /**
@@ -190,15 +183,12 @@ export class StatisticsManager {
       this.detailedStats.dailyPlaytime[today] += sessionLength;
       this.detailedStats.totalPlaytimeMinutes += sessionLength;
 
-      // Update average session length
       this.detailedStats.averageSessionLength =
         this.detailedStats.totalPlaytimeMinutes /
         this.detailedStats.sessionCount;
 
       this.stopPlaytimeTracking();
       this.saveDetailedStats();
-
-      console.log(`📊 Session ended: ${sessionLength.toFixed(1)} minutes`);
     }
   }
 
@@ -206,8 +196,7 @@ export class StatisticsManager {
    * Start playtime tracking interval
    */
   startPlaytimeTracking() {
-    this.stopPlaytimeTracking(); // Clear any existing interval
-
+    this.stopPlaytimeTracking();
     this.playtimeInterval = setInterval(() => {
       const today = new Date().toDateString();
       const minutesToAdd = GAME_CONFIG.PLAYTIME_UPDATE_INTERVAL / 1000 / 60;
@@ -218,7 +207,6 @@ export class StatisticsManager {
       this.detailedStats.dailyPlaytime[today] += minutesToAdd;
       this.detailedStats.totalPlaytimeMinutes += minutesToAdd;
 
-      // Update average session length
       this.detailedStats.averageSessionLength =
         this.detailedStats.totalPlaytimeMinutes /
         Math.max(this.detailedStats.sessionCount, 1);
@@ -242,24 +230,20 @@ export class StatisticsManager {
     const today = new Date().toDateString();
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toDateString();
 
-    // Check if already played today
     if (this.detailedStats.lastDailyChallengeDate === today) {
-      return; // Already tracked today
+      return;
     }
 
-    // Add to history
     if (!this.detailedStats.dailyChallengeHistory.includes(today)) {
       this.detailedStats.dailyChallengeHistory.push(today);
     }
 
-    // Update streak
     if (this.detailedStats.lastDailyChallengeDate === yesterday) {
       this.detailedStats.dailyChallengeStreak++;
     } else {
-      this.detailedStats.dailyChallengeStreak = 1; // Reset streak
+      this.detailedStats.dailyChallengeStreak = 1;
     }
 
-    // Update longest streak
     if (
       this.detailedStats.dailyChallengeStreak >
       this.detailedStats.longestDailyStreak
@@ -270,51 +254,26 @@ export class StatisticsManager {
 
     this.detailedStats.lastDailyChallengeDate = today;
     this.saveDetailedStats();
-
-    console.log(
-      `🗓️ Daily challenge tracked. Streak: ${this.detailedStats.dailyChallengeStreak}`
-    );
-  }
-
-  /**
-   * Calculate current daily challenge streak
-   */
-  calculateDailyStreak() {
-    const today = new Date().toDateString();
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toDateString();
-
-    if (this.detailedStats.lastDailyChallengeDate === today) {
-      return this.detailedStats.dailyChallengeStreak;
-    } else if (this.detailedStats.lastDailyChallengeDate === yesterday) {
-      return this.detailedStats.dailyChallengeStreak; // Can still continue today
-    } else {
-      return 0; // Streak broken
-    }
   }
 
   /**
    * Track a wrong answer for learning system (V2: Canonical format)
-   * @param {Object} question - Canonical question object
-   * @param {number} wrongAnswer - The wrong answer provided
+   * With ENHANCED learning tracking (consecutive successes needed)
    */
   trackWrongAnswer(question, wrongAnswer) {
     const { op, meta, a, b } = question;
     const levelId = meta.levelId || 'unknown';
-
-    // Store by levelId
     const key = levelId;
 
     if (!this.wrongAnswers[key]) {
       this.wrongAnswers[key] = [];
     }
 
-    // Find existing wrong answer for this question
     const existing = this.wrongAnswers[key].find(
       (w) => w.op === op && w.a === a && w.b === b
     );
 
     if (existing) {
-      // Update existing entry
       if (!existing.allWrongAnswers) {
         existing.allWrongAnswers = [existing.wrongAnswer].filter(x => x !== undefined);
       }
@@ -323,16 +282,13 @@ export class StatisticsManager {
       existing.wrongAnswer = wrongAnswer;
       existing.timestamp = Date.now();
 
-      // If it was previously learned, reset status
-      if (existing.learned) {
-        existing.learned = false;
-        existing.totalAttempts = (existing.totalAttempts || 1) + 1;
-        existing.correctAttempts = existing.correctAttempts || 0;
-      } else {
-        existing.totalAttempts = (existing.totalAttempts || 1) + 1;
-      }
+      // Reset learning progress
+      existing.learned = false;
+      existing.consecutiveCorrect = 0; // Reset consecutive correct answers
+
+      existing.totalAttempts = (existing.totalAttempts || 0) + 1;
+
     } else {
-      // Create new wrong answer entry
       const wrongData = {
         op,
         levelId,
@@ -345,6 +301,7 @@ export class StatisticsManager {
         timestamp: Date.now(),
         retryCount: 0,
         learned: false,
+        consecutiveCorrect: 0, // New: Tracking consecutive correct answers
         totalAttempts: 1,
         correctAttempts: 0,
       };
@@ -352,10 +309,7 @@ export class StatisticsManager {
       this.wrongAnswers[key].push(wrongData);
     }
 
-    // Limit number of tracked wrong answers per level
-    if (
-      this.wrongAnswers[key].length > GAME_CONFIG.MAX_WRONG_ANSWERS_TRACKED
-    ) {
+    if (this.wrongAnswers[key].length > GAME_CONFIG.MAX_WRONG_ANSWERS_TRACKED) {
       this.wrongAnswers[key] = this.wrongAnswers[key]
         .sort((a, b) => b.timestamp - a.timestamp)
         .slice(0, GAME_CONFIG.MAX_WRONG_ANSWERS_TRACKED);
@@ -365,16 +319,14 @@ export class StatisticsManager {
   }
 
   /**
-   * Mark a wrong answer as learned
-   * @param {Object} question - Canonical question object
+   * Mark a wrong answer as learned (or progress towards learning)
    */
   markAsLearned(question) {
     const { op, a, b } = question;
     let markedCount = 0;
 
-    // Mark as learned in ALL levels where this question exists
-    // (e.g. 2x3 might be in Mul_T2 and Mul_T3 depending on implementation,
-    // though typically it's specific to one levelId. But let's check all.)
+    // Config: How many times to answer correctly to be "learned"?
+    const REQUIRED_CONSECUTIVE = 2;
 
     Object.keys(this.wrongAnswers).forEach((key) => {
       const wrongAnswer = this.wrongAnswers[key].find(
@@ -382,25 +334,26 @@ export class StatisticsManager {
       );
 
       if (wrongAnswer && !wrongAnswer.learned) {
-        wrongAnswer.learned = true;
-        wrongAnswer.retryCount++;
         wrongAnswer.correctAttempts = (wrongAnswer.correctAttempts || 0) + 1;
-        wrongAnswer.totalAttempts = wrongAnswer.totalAttempts || 1;
+        wrongAnswer.consecutiveCorrect = (wrongAnswer.consecutiveCorrect || 0) + 1;
 
-        markedCount++;
+        // Mark as learned ONLY if threshold met
+        if (wrongAnswer.consecutiveCorrect >= REQUIRED_CONSECUTIVE) {
+             wrongAnswer.learned = true;
+             markedCount++;
+        }
       }
     });
 
     if (markedCount > 0) {
       this.saveWrongAnswers();
-      console.log(`📚 Marked as learned: ${question.text}`);
+      console.log(`📚 Marked as learned (mastered): ${question.text}`);
+    } else {
+       // Save progress
+       this.saveWrongAnswers();
     }
   }
 
-  /**
-   * Get unlearned wrong answers for a level
-   * @param {string} levelId
-   */
   getUnlearnedWrongAnswers(levelId) {
     if (this.wrongAnswers[levelId]) {
       return this.wrongAnswers[levelId]
@@ -410,9 +363,6 @@ export class StatisticsManager {
     return [];
   }
 
-  /**
-   * Get all unlearned wrong answers across all levels (for Daily Challenge or Mixed Review)
-   */
   getAllUnlearnedWrongAnswers() {
       let all = [];
       Object.keys(this.wrongAnswers).forEach(key => {
@@ -421,13 +371,6 @@ export class StatisticsManager {
       return all;
   }
 
-  /**
-   * Update level progress
-   * @param {string} op
-   * @param {string} levelId
-   * @param {number} stars
-   * @param {number} score
-   */
   updateLevelProgress(op, levelId, stars, score) {
       if (!this.detailedStats.opsProgress[op]) {
           this.detailedStats.opsProgress[op] = {};
@@ -443,7 +386,28 @@ export class StatisticsManager {
       this.saveDetailedStats();
   }
 
-  /**
+  // Game State Saving (Resume)
+  saveGameState(op, state) {
+      if (!this.detailedStats.activeGames) this.detailedStats.activeGames = {};
+      this.detailedStats.activeGames[op] = state;
+      this.saveDetailedStats();
+  }
+
+  loadGameState(op) {
+      if (!this.detailedStats.activeGames) return null;
+      return this.detailedStats.activeGames[op];
+  }
+
+  clearGameState(op) {
+      if (this.detailedStats.activeGames && this.detailedStats.activeGames[op]) {
+          delete this.detailedStats.activeGames[op];
+          this.saveDetailedStats();
+      }
+  }
+
+  // ... (Other existing methods: getTodayPlaytime, getTodayLaunches, trackDailyChallengeRun, etc.)
+
+    /**
    * Get today's playtime in minutes
    */
   getTodayPlaytime() {
@@ -552,6 +516,67 @@ export class StatisticsManager {
       this.detailedStats.dailyChallengeToday = 0;
       this.saveDetailedStats();
     }
+  }
+
+    /**
+   * Get comprehensive statistics for display
+   */
+  getComprehensiveStats() {
+    return {
+      totalPlaytimeMinutes: this.detailedStats.totalPlaytimeMinutes,
+      totalPlaytimeFormatted: this.formatPlaytime(
+        this.detailedStats.totalPlaytimeMinutes
+      ),
+      dailyChallengeStreak: this.calculateDailyStreak(),
+      longestDailyStreak: this.detailedStats.longestDailyStreak,
+      todayPlaytime: this.getTodayPlaytime(),
+      todayPlaytimeFormatted: this.formatPlaytime(this.getTodayPlaytime()),
+      todayLaunches: this.getTodayLaunches(),
+      averageSessionLength: this.detailedStats.averageSessionLength,
+      averageSessionFormatted: this.formatPlaytime(
+        this.detailedStats.averageSessionLength
+      ),
+      sessionCount: this.detailedStats.sessionCount,
+      totalWrongAnswers: this.getTotalWrongAnswersCount(),
+      unlearnedWrongAnswers: this.getTotalUnlearnedCount(),
+    };
+  }
+
+    /**
+   * Format playtime in minutes to readable format
+   */
+  formatPlaytime(minutes) {
+    if (minutes < 1) {
+      return "< 1 min";
+    } else if (minutes < 60) {
+      return `${Math.round(minutes)} min`;
+    } else {
+      const hours = Math.floor(minutes / 60);
+      const mins = Math.round(minutes % 60);
+      return `${hours}h ${mins}m`;
+    }
+  }
+
+  /**
+   * Get total wrong answers count
+   */
+  getTotalWrongAnswersCount() {
+    let total = 0;
+    Object.values(this.wrongAnswers).forEach((levelWrong) => {
+      total += levelWrong.length;
+    });
+    return total;
+  }
+
+  /**
+   * Get total unlearned wrong answers count
+   */
+  getTotalUnlearnedCount() {
+    let total = 0;
+    Object.values(this.wrongAnswers).forEach((levelWrong) => {
+      total += levelWrong.filter((w) => !w.learned).length;
+    });
+    return total;
   }
 
   /**
