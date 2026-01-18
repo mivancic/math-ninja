@@ -3,7 +3,7 @@
  * @fileoverview Advanced statistics tracking for detailed game analytics
  */
 
-import { GAME_CONFIG, FEEDBACK_TYPES } from "./config.js";
+import { GAME_CONFIG, FEEDBACK_TYPES, LEVELS_BY_OPERATION } from "./config.js";
 
 export class StatisticsManager {
   constructor() {
@@ -94,6 +94,7 @@ export class StatisticsManager {
    */
   getDefaultDetailedStats() {
     return {
+      playerName: null, // New: Player Name
       totalPlaytimeMinutes: 0,
       dailyLaunches: {}, // date -> count
       dailyPlaytime: {}, // date -> minutes
@@ -223,6 +224,16 @@ export class StatisticsManager {
     }
   }
 
+  // Player Name Management
+  setPlayerName(name) {
+      this.detailedStats.playerName = name;
+      this.saveDetailedStats();
+  }
+
+  getPlayerName() {
+      return this.detailedStats.playerName;
+  }
+
   /**
    * Track daily challenge completion
    */
@@ -255,6 +266,22 @@ export class StatisticsManager {
     this.detailedStats.lastDailyChallengeDate = today;
     this.saveDetailedStats();
   }
+
+  /**
+   * Calculate daily streak
+   */
+  calculateDailyStreak() {
+      // Logic to check if streak is active (today or yesterday played)
+      const today = new Date().toDateString();
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toDateString();
+
+      if (this.detailedStats.lastDailyChallengeDate === today ||
+          this.detailedStats.lastDailyChallengeDate === yesterday) {
+          return this.detailedStats.dailyChallengeStreak;
+      }
+      return 0;
+  }
+
 
   /**
    * Track a wrong answer for learning system (V2: Canonical format)
@@ -326,7 +353,7 @@ export class StatisticsManager {
     let markedCount = 0;
 
     // Config: How many times to answer correctly to be "learned"?
-    const REQUIRED_CONSECUTIVE = 2;
+    const REQUIRED_CONSECUTIVE = 3; // Updated to 3 based on user request
 
     Object.keys(this.wrongAnswers).forEach((key) => {
       const wrongAnswer = this.wrongAnswers[key].find(
@@ -384,6 +411,34 @@ export class StatisticsManager {
 
       this.detailedStats.opsProgress[op][levelId] = current;
       this.saveDetailedStats();
+  }
+
+  /**
+   * Check if level is unlocked
+   */
+  isLevelUnlocked(op, levelId) {
+      const levels = LEVELS_BY_OPERATION[op];
+      const index = levels.findIndex(l => l.id === levelId);
+
+      // First level is always unlocked
+      if (index <= 0) return true;
+
+      // Check if previous level has at least 1 star
+      const prevLevelId = levels[index - 1].id;
+      const prevStats = this.detailedStats.opsProgress[op][prevLevelId];
+
+      return prevStats && prevStats.stars >= 1;
+  }
+
+  /**
+   * Get total stars for an operation
+   */
+  getStarsForOp(op) {
+      let stars = 0;
+      if (this.detailedStats.opsProgress[op]) {
+          Object.values(this.detailedStats.opsProgress[op]).forEach(s => stars += s.stars);
+      }
+      return stars;
   }
 
   // Game State Saving (Resume)

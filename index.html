@@ -14,6 +14,8 @@
     <link rel="stylesheet" href="assets/css/components.css" />
     <link rel="stylesheet" href="assets/css/animations.css" />
     <link rel="stylesheet" href="assets/css/responsive.css" />
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
         .home-screen { display: none; }
@@ -82,6 +84,20 @@
             gap: 10px;
         }
 
+        .op-daily-challenge-btn {
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            width: 100%;
+            margin-bottom: 20px;
+            padding: 15px;
+            border-radius: 15px;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+            animation: pulse 2s infinite;
+        }
+
+
         /* Global Score Display */
         .global-stats-bar {
             display: flex;
@@ -98,6 +114,19 @@
             align-items: center;
             gap: 5px;
             font-weight: bold;
+        }
+
+        /* Player Name Display */
+        .player-name-container {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+            opacity: 0.8;
+            cursor: pointer;
+        }
+        .player-name-container:hover {
+            opacity: 1;
+            text-decoration: underline;
         }
 
         .strikes-container {
@@ -145,6 +174,24 @@
             font-size: 0.8em;
             font-weight: bold;
             text-align: center;
+        }
+
+        /* Locked Level Button Style */
+        .level-button.locked {
+            opacity: 0.6;
+            cursor: not-allowed;
+            background: rgba(0,0,0,0.2);
+            border-color: rgba(255,255,255,0.1);
+        }
+
+        .lock-icon {
+            font-size: 1.5em;
+            margin-top: 5px;
+        }
+
+        /* Stats Styling */
+        .locked-stat {
+            opacity: 0.5;
         }
 
         /* Resume Prompt Overlay */
@@ -226,6 +273,7 @@
     <div class="game-container">
       <!-- HOME / OPERATION SELECT -->
       <div class="home-screen active">
+        <div class="player-name-container" id="playerNameDisplay">Mali Ninja</div>
         <h1>🥷 Matematički Ninja</h1>
 
         <!-- Global Stats Bar -->
@@ -283,6 +331,11 @@
       <!-- LEVEL SELECT -->
       <div class="level-select-screen" style="display: none">
         <h2 id="levelSelectTitle">Odaberi Razinu</h2>
+
+        <!-- Operation Specific Daily Challenge -->
+        <button class="op-daily-challenge-btn" id="opDailyChallengeBtn" data-action="start-op-challenge" style="display:none">
+            📅 Dnevni Izazov
+        </button>
 
         <div class="level-selector" id="levelSelector"></div>
         <button class="back-button" data-action="show-home">

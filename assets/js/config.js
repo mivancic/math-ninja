@@ -16,7 +16,7 @@ export const GAME_CONFIG = {
 
   // Game mechanics
   QUESTIONS_PER_LEVEL: 10,
-  ACCURACY_THRESHOLD: 80, // Minimum accuracy for star completion
+  UNLOCK_THRESHOLD: 60, // Minimum accuracy to unlock next level (1 star)
   STRIKES_ALLOWED: 3, // Number of strikes before a mini-break
 
   // Answer generation
@@ -35,6 +35,7 @@ export const GAME_CONFIG = {
   WRONG_ANSWERS_KEY: "mathNinjaWrongAnswers",
   STATISTICS_KEY: "mathNinjaDetailedStats",
   BADGES_KEY: "mathNinjaBadges",
+  PLAYER_PROFILE_KEY: "mathNinjaProfile", // New: Player Name
   STORAGE_VERSION: 2,
 
   // New: Streak Visual Effects
@@ -54,7 +55,7 @@ export const GAME_CONFIG = {
   WRONG_ANSWER_RETRY_DELAY: 2000, // Delay before retry offer
   MAX_WRONG_ANSWERS_TRACKED: 50, // Maximum wrong answers to track per level
   RETRY_TRIGGER_THRESHOLD: 2, // Correct answers needed before retry offer
-  REVIEW_CHANCE: 0.35, // 35% chance to show a review question
+  REVIEW_CHANCE: 0.05, // 5% chance to show a review question (User requested 2-5%)
 };
 
 export const OPERATIONS = {
@@ -95,32 +96,25 @@ export const LEVELS_BY_OPERATION = {
 
 export const PERFORMANCE_TIERS = [
   {
-    threshold: 95,
+    threshold: 100,
     emoji: "🤩",
     title: "IZVRSNO!",
     stars: 3,
     color: "#4caf50",
   },
   {
-    threshold: 85,
+    threshold: 80,
     emoji: "😄",
     title: "Odlično!",
-    stars: 3,
+    stars: 2,
     color: "#8bc34a",
   },
   {
-    threshold: 70,
+    threshold: 60,
     emoji: "😊",
-    title: "Super!",
-    stars: 2,
-    color: "#ffc107",
-  },
-  {
-    threshold: 50,
-    emoji: "🙂",
     title: "Dobro!",
     stars: 1,
-    color: "#ff9800",
+    color: "#ffc107",
   },
   {
     threshold: 0,
@@ -132,13 +126,14 @@ export const PERFORMANCE_TIERS = [
 ];
 
 export const SCREEN_NAMES = {
-  HOME: "home-screen", // New Home/Op Select
+  HOME: "home-screen",
   LEVEL_SELECT: "level-select-screen",
   GAME: "game-screen",
   STATS: "stats-screen",
   SETTINGS: "settings-screen",
   LEVEL_COMPLETE: "level-complete-screen",
-  BADGES: "badges-screen" // New Badges screen
+  BADGES: "badges-screen",
+  LEADERBOARD: "leaderboard-screen" // New
 };
 
 export const FEEDBACK_TYPES = {
@@ -208,12 +203,12 @@ export const STREAK_THEMES = {
  * @returns {Object} Performance tier object
  */
 export function getPerformanceTier(accuracy) {
-  if (accuracy >= 95) {
+  if (accuracy >= 100) {
     return { stars: 3, title: "Savršeno!", color: "#4CAF50", emoji: "🥷" };
-  } else if (accuracy >= 85) {
-    return { stars: 2, title: "Odlično!", color: "#FF9800", emoji: "✨" };
-  } else if (accuracy >= 70) {
-    return { stars: 1, title: "Dobro!", color: "#2196F3", emoji: "👍" };
+  } else if (accuracy >= 80) {
+    return { stars: 2, title: "Odlično!", color: "#8bc34a", emoji: "✨" };
+  } else if (accuracy >= 60) {
+    return { stars: 1, title: "Dobro!", color: "#ffc107", emoji: "👍" };
   } else {
     return {
       stars: 0,
@@ -230,10 +225,9 @@ export function getPerformanceTier(accuracy) {
  * @returns {number} Number of stars (0-3)
  */
 export function calculateStars(accuracy) {
-  if (accuracy >= 95) return 3;
-  if (accuracy >= 85) return 3;
-  if (accuracy >= 70) return 2;
-  if (accuracy >= 50) return 1;
+  if (accuracy >= 100) return 3;
+  if (accuracy >= 80) return 2;
+  if (accuracy >= 60) return 1;
   return 0;
 }
 

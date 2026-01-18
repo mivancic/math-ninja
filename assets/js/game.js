@@ -28,8 +28,10 @@ export class GameEngine {
     this.currentQuestion = null;
     this.isGameActive = false;
     this.questionHistory = [];
-    this.reviewQueue = [];
+    this.reviewQueue = []; // Persistent review items (long term)
+    this.immediateRetryQueue = []; // Immediate re-serve of wrong answers
     this.isReviewActive = false;
+    this.unlockedLevels = []; // For Mixed Mode (Op specific)
 
     // Mixed mode support
     this.isMixedMode = false;
@@ -40,13 +42,15 @@ export class GameEngine {
    * @param {string} op - Operation (add, sub, mul, div) or 'mixed'
    * @param {string} levelId - Level ID or 'mixed'
    * @param {Array} reviewQuestions - Optional array of unlearned wrong answers
+   * @param {Array} unlockedLevels - Optional list of unlocked level IDs (for mixed mode)
    */
-  startGame(op, levelId, reviewQuestions = []) {
+  startGame(op, levelId, reviewQuestions = [], unlockedLevels = []) {
     this.reset();
+    this.unlockedLevels = unlockedLevels;
 
     if (op === 'mixed' || levelId === 'mixed') {
         this.isMixedMode = true;
-        this.currentOp = 'mixed';
+        this.currentOp = (op === 'mixed') ? 'mixed' : op; // Keep op if specific (e.g. 'add' mixed)
         this.currentLevelId = 'mixed';
     } else {
         this.currentOp = op;
@@ -76,16 +80,14 @@ export class GameEngine {
       this.questionsAnswered = state.questionsAnswered;
       this.correctAnswers = state.correctAnswers;
       this.reviewQueue = state.reviewQueue || [];
+      this.immediateRetryQueue = state.immediateRetryQueue || [];
       this.isMixedMode = state.isMixedMode || false;
+      this.unlockedLevels = state.unlockedLevels || [];
       this.isGameActive = true;
 
-      // We don't restore the EXACT current question object usually unless we serialized it fully.
-      // Ideally caller calls generateQuestion immediately after restore if currentQuestion is null.
-      // But if we want to resume exactly at the question:
       if (state.currentQuestion) {
           this.currentQuestion = state.currentQuestion;
       } else {
-          // If no question saved, generate one
           this.generateQuestion();
       }
 
@@ -99,13 +101,28 @@ export class GameEngine {
   generateQuestion() {
     if (!this.isGameActive) return null;
 
-    // Check review injection
+    // 1. Check Immediate Retry Queue (High Priority)
+    // Only serve if streak > 0 (meaning last answer was correct) OR if queue is full?
+    // User requirement: "Repeat that wrongly answered question after next correct answer."
+    // Also: "Not show same wrongly answered question couple of times in a row."
+    // If I answer Wrong, streak is 0. So we skip this block. We serve random Q.
+    // If I answer Correct, streak is > 0. We serve Retry.
+    if (this.streak > 0 && this.immediateRetryQueue.length > 0) {
+        const retryQuestion = this.immediateRetryQueue.shift();
+        // Tag as retry to handle logic (maybe no points?)
+        retryQuestion.meta = retryQuestion.meta || {};
+        retryQuestion.meta.isRetry = true;
+        this.currentQuestion = retryQuestion;
+        console.log("🔄 Serving immediate retry:", retryQuestion.text);
+        return retryQuestion;
+    }
+
+    // 2. Check Review Injection (Long Term Learning)
     const shouldReview =
         this.reviewQueue.length > 0 &&
         Math.random() < GAME_CONFIG.REVIEW_CHANCE;
 
     if (shouldReview) {
-        // Pick random review item
         const index = Math.floor(Math.random() * this.reviewQueue.length);
         const reviewRecord = this.reviewQueue[index];
 
@@ -119,11 +136,11 @@ export class GameEngine {
         }
     }
 
+    // 3. Generate Normal Question
     if (this.isMixedMode) {
         return this.generateMixedQuestion();
     }
 
-    // Standard Generation
     return this.generateRandomQuestion();
   }
 
@@ -131,21 +148,37 @@ export class GameEngine {
    * Generate Mixed Question
    */
   generateMixedQuestion() {
-      // Pick random op
-      const ops = Object.values(OPS);
-      const op = ops[Math.floor(Math.random() * ops.length)];
+      let op = this.currentOp;
+      let levelConfig;
 
-      // Pick random level config for that op
-      // Simplified: Just pick a random level from 1 to 4 (or available)
-      const levels = LEVELS_BY_OPERATION[op];
-      const levelConfig = levels[Math.floor(Math.random() * levels.length)];
+      // Global Mixed Mode (Daily Challenge Mix)
+      if (op === 'mixed') {
+          const ops = Object.values(OPS);
+          op = ops[Math.floor(Math.random() * ops.length)];
+          const levels = LEVELS_BY_OPERATION[op];
+          levelConfig = levels[Math.floor(Math.random() * levels.length)];
+      }
+      // Op-Specific Mixed Mode (Addition Daily Challenge)
+      else {
+           // Filter LEVELS_BY_OPERATION[op] by unlockedLevels if present
+           // If unlockedLevels provided, pick from them.
+           // Note: unlockedLevels are IDs.
+           const allLevels = LEVELS_BY_OPERATION[op];
+           let availableLevels = allLevels;
+
+           if (this.unlockedLevels && this.unlockedLevels.length > 0) {
+               availableLevels = allLevels.filter(l => this.unlockedLevels.includes(l.id));
+               // Fallback if something wrong
+               if (availableLevels.length === 0) availableLevels = allLevels;
+           }
+
+           levelConfig = availableLevels[Math.floor(Math.random() * availableLevels.length)];
+      }
 
       const generator = Generators[op];
       const question = generator(levelConfig);
 
-      // Tag it as mixed
       question.meta.isMixed = true;
-
       this.currentQuestion = question;
       return question;
   }
@@ -175,17 +208,50 @@ export class GameEngine {
   evaluateAnswer(selectedAnswer) {
     if (!this.isGameActive || !this.currentQuestion) return null;
 
-    this.questionsAnswered++;
+    const isRetry = this.currentQuestion.meta && this.currentQuestion.meta.isRetry;
+
+    // Only increment questionsAnswered if it's NOT a retry (to avoid messing up stats)
+    // OR: User wants to enforce it. Maybe we count it but don't give points?
+    // Decision: If retry, we don't increment "questionsAnswered" for the *level progress* (10 questions),
+    // but we do process it.
+    // Actually, "questionsAnswered" tracks progress to completion (10 Qs).
+    // If we insert retries, the game becomes longer than 10 Qs. This is desired.
+    // So we SHOULD NOT increment questionsAnswered if it is a retry that was just added.
+    // Wait, if I answer wrong, it adds a retry.
+    // Question 1: Wrong. (Count = 1). Queue Retry.
+    // Question 2: Correct. (Count = 2).
+    // Question 3 (Retry Q1): Correct. (Count = ?).
+    // If we count retry, total Qs = 11.
+
+    // User said: "If we show that questions three times... do not enforce it".
+    // "Enforce that questions to be correctly answered."
+
+    // Let's count all attempts as part of the session stats, but for "Level Completion" (10 Qs),
+    // maybe we only count "Fresh" questions?
+    // Simpler: Just count everything. The level ends when 10 questions are *served and answered*.
+    // If retries are added, it effectively extends the level.
+
+    // However, if I fail Q1, and Q1 is re-added. Then I have to answer 11 Qs to finish?
+    // Yes, that makes sense for "Enforcement".
+
+    if (!isRetry) {
+         this.questionsAnswered++;
+    }
+
     let feedbackType;
     let pointsEarned = 0;
     const isCorrect = selectedAnswer === this.currentQuestion.correct;
 
     if (isCorrect) {
-      this.correctAnswers++;
+      if (!isRetry) {
+          this.correctAnswers++;
+      }
       this.streak++;
       if (this.streak > this.maxStreak) this.maxStreak = this.streak;
 
-      pointsEarned = this.calculatePoints();
+      pointsEarned = this.calculatePoints(); // Give points even for retries? Maybe reduced?
+      if (isRetry) pointsEarned = Math.floor(pointsEarned / 2); // Half points for retries
+
       this.score += pointsEarned;
       feedbackType = FEEDBACK_TYPES.CORRECT;
 
@@ -193,10 +259,24 @@ export class GameEngine {
       this.streak = 0;
       this.strikes++;
       feedbackType = FEEDBACK_TYPES.INCORRECT;
+
+      // IMMEDIATE RETRY LOGIC
+      // Add current question to immediate queue
+      // We clone it to ensure it's a fresh instance if needed, but same data
+      // We want to serve it "after next correct answer".
+      // My generateQuestion checks immediateQueue first.
+      // So if I answer Wrong, it goes to Queue.
+      // Next Q is served. If Correct -> Next is Queue.
+      // Perfect.
+
+      // Prevent infinite loop if they keep getting the SAME retry wrong.
+      // If it's already a retry, do we add it back? Yes, "Enforce".
+      this.immediateRetryQueue.push(this.currentQuestion);
     }
 
     const isGameComplete =
-      this.questionsAnswered >= GAME_CONFIG.QUESTIONS_PER_LEVEL;
+      this.questionsAnswered >= GAME_CONFIG.QUESTIONS_PER_LEVEL &&
+      this.immediateRetryQueue.length === 0; // Don't end if retries pending!
 
     if (isGameComplete) {
       this.isGameActive = false;
@@ -209,6 +289,7 @@ export class GameEngine {
       isGameComplete,
       strikes: this.strikes,
       gameStats: this.getGameStats(),
+      isRetry
     };
   }
 
@@ -218,6 +299,13 @@ export class GameEngine {
   }
 
   getGameStats() {
+    // Accuracy calculation: unique questions or total attempts?
+    // Standard is Total Correct / Total Attempts.
+    // But here questionsAnswered only counts "Fresh" ones?
+    // Let's adjust accuracy to be purely (Correct / (QuestionsAnswered + Retries))?
+    // Ideally we track totalAttempts separately.
+    // For now, simple approximation.
+
     const accuracy =
       this.questionsAnswered > 0
         ? Math.round((this.correctAnswers / this.questionsAnswered) * 100)
@@ -237,7 +325,9 @@ export class GameEngine {
       isMixedMode: this.isMixedMode,
       // Current State for saving
       reviewQueue: this.reviewQueue,
-      currentQuestion: this.currentQuestion
+      immediateRetryQueue: this.immediateRetryQueue,
+      currentQuestion: this.currentQuestion,
+      unlockedLevels: this.unlockedLevels
     };
   }
 
