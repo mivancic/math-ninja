@@ -441,6 +441,19 @@ export class StatisticsManager {
       return stars;
   }
 
+  /**
+   * Get cumulative total score across all levels
+   */
+  getTotalScore() {
+      let total = 0;
+      Object.values(this.detailedStats.opsProgress).forEach(opStats => {
+          Object.values(opStats).forEach(levelStat => {
+              total += levelStat.bestScore || 0;
+          });
+      });
+      return total;
+  }
+
   // Game State Saving (Resume)
   saveGameState(op, state) {
       if (!this.detailedStats.activeGames) this.detailedStats.activeGames = {};

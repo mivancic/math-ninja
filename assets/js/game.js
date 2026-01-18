@@ -151,28 +151,51 @@ export class GameEngine {
       let op = this.currentOp;
       let levelConfig;
 
-      // Global Mixed Mode (Daily Challenge Mix)
-      if (op === 'mixed') {
-          const ops = Object.values(OPS);
-          op = ops[Math.floor(Math.random() * ops.length)];
-          const levels = LEVELS_BY_OPERATION[op];
-          levelConfig = levels[Math.floor(Math.random() * levels.length)];
-      }
-      // Op-Specific Mixed Mode (Addition Daily Challenge)
-      else {
-           // Filter LEVELS_BY_OPERATION[op] by unlockedLevels if present
-           // If unlockedLevels provided, pick from them.
-           // Note: unlockedLevels are IDs.
-           const allLevels = LEVELS_BY_OPERATION[op];
-           let availableLevels = allLevels;
+      // Global Mixed Mode (Daily Challenge Mix) or Op-Specific
+      // In both cases, if `unlockedLevels` are provided, we MUST use them.
 
-           if (this.unlockedLevels && this.unlockedLevels.length > 0) {
-               availableLevels = allLevels.filter(l => this.unlockedLevels.includes(l.id));
-               // Fallback if something wrong
-               if (availableLevels.length === 0) availableLevels = allLevels;
-           }
+      if (this.unlockedLevels && this.unlockedLevels.length > 0) {
+          // Pick a random Level ID from unlocked levels
+          const levelId = this.unlockedLevels[Math.floor(Math.random() * this.unlockedLevels.length)];
 
-           levelConfig = availableLevels[Math.floor(Math.random() * availableLevels.length)];
+          // Decode ID to find Op and Config
+          // Format: 'add_L1' or 'mul_T1'
+          // We can iterate LEVELS_BY_OPERATION to find it.
+
+          let found = false;
+          // Optimization: Infer op from prefix
+          if (levelId.startsWith('add')) op = 'add';
+          else if (levelId.startsWith('sub')) op = 'sub';
+          else if (levelId.startsWith('mul')) op = 'mul';
+          else if (levelId.startsWith('div')) op = 'div';
+
+          if (op) {
+              const levels = LEVELS_BY_OPERATION[op];
+              levelConfig = levels.find(l => l.id === levelId);
+              if (levelConfig) found = true;
+          }
+
+          // Fallback if ID parsing fails (shouldn't happen)
+          if (!found) {
+              console.warn("Could not parse mixed level ID:", levelId);
+              // Fallback to random
+              const ops = Object.values(OPS);
+              op = ops[Math.floor(Math.random() * ops.length)];
+              const levels = LEVELS_BY_OPERATION[op];
+              levelConfig = levels[Math.floor(Math.random() * levels.length)];
+          }
+      } else {
+          // Default Random Logic (if no unlocked list provided - unlikely now)
+          if (op === 'mixed') {
+              const ops = Object.values(OPS);
+              op = ops[Math.floor(Math.random() * ops.length)];
+              const levels = LEVELS_BY_OPERATION[op];
+              levelConfig = levels[Math.floor(Math.random() * levels.length)];
+          } else {
+              // Should have been filtered in startGame, but fallback just in case
+              const levels = LEVELS_BY_OPERATION[op];
+              levelConfig = levels[Math.floor(Math.random() * levels.length)];
+          }
       }
 
       const generator = Generators[op];

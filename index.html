@@ -194,7 +194,7 @@
             opacity: 0.5;
         }
 
-        /* Resume Prompt Overlay */
+        /* Modals & Overlays */
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -247,6 +247,18 @@
             border-radius: 20px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             animation: bounceIn 0.5s;
+        }
+
+        /* Action Button Styles (Invite) */
+        .action-button.invite-style {
+            background: linear-gradient(45deg, #FF512F 0%, #DD2476 100%);
+            box-shadow: 0 4px 15px rgba(221, 36, 118, 0.4);
+            font-weight: bold;
+            border: none;
+        }
+        .action-button.invite-style:hover {
+             transform: translateY(-2px);
+             box-shadow: 0 6px 20px rgba(221, 36, 118, 0.6);
         }
 
         @keyframes bounceIn {
@@ -407,6 +419,10 @@
           <button class="menu-button" data-action="show-home">
             Glavni Izbornik
           </button>
+          <!-- Challenge Friend Button (Injected dynamically or placeholder) -->
+          <button class="action-button invite-style" id="btnChallenge" data-action="challenge-friend" style="width:100%; margin-top:10px; display:none;">
+               ⚔️ Izazovi Prijatelja
+          </button>
         </div>
       </div>
 
@@ -460,6 +476,39 @@
                 <button class="menu-button primary" id="btnResumeYes">Nastavi</button>
                 <button class="menu-button secondary" id="btnResumeNo">Nova Igra</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Battle Start Modal -->
+    <div class="modal-overlay" id="battleStartModal">
+        <div class="modal-content">
+             <h2 style="color:#FFD700">⚔️ IZAZOV! ⚔️</h2>
+             <p>Igrač <strong id="battleChallengerName">???</strong> te izaziva!</p>
+             <div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:10px; margin:10px 0;">
+                 <div>Cilj: <strong id="battleTargetScore" style="font-size:1.5em">0</strong> bodova</div>
+                 <div id="battleDetails" style="font-size:0.8em; opacity:0.8; margin-top:5px;"></div>
+             </div>
+             <div class="modal-buttons">
+                 <button class="menu-button primary" id="btnBattleStart">Prihvati Izazov!</button>
+                 <button class="menu-button secondary" data-action="close-modal" data-target="battleStartModal">Odbij</button>
+             </div>
+        </div>
+    </div>
+
+    <!-- Battle Result Modal -->
+    <div class="modal-overlay" id="battleResultModal">
+        <div class="modal-content">
+            <h2 id="battleResultTitle">REZULTAT</h2>
+            <div style="font-size:3em; margin:10px;">🏆</div>
+            <p id="battleResultScore" style="font-size:1.2em; font-weight:bold;"></p>
+            <p id="battleTargetScoreDisplay" style="opacity:0.8"></p>
+
+            <button class="action-button invite-style" id="btnShareRevenge" style="margin-top:20px; width:100%">
+                 🔗 Pošalji Rezultat
+            </button>
+             <button class="menu-button secondary" data-action="show-home" style="margin-top:10px;">
+                 Povratak
+            </button>
         </div>
     </div>
 

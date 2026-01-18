@@ -26,11 +26,14 @@ class MathNinjaApp {
 
     this.currentScreen = SCREEN_NAMES.HOME;
     this.timerInterval = null;
+    this.activeTimeouts = []; // Timeout Manager
     this.pausedGameState = null;
 
     // UI State
     this.selectedOp = null; // 'add', 'sub', 'mul', 'div', 'mixed'
     this.isBattleMode = false; // Flag for battle mode
+    this.battleTargetScore = 0; // Target score for battle
+    this.battleChallenger = ""; // Name of challenger
 
     // Initialize app
     this.init();
@@ -49,17 +52,21 @@ class MathNinjaApp {
     console.log("🥷 Math Ninja 2.0 initialized!");
   }
 
+  // --- TIMEOUT MANAGER ---
+  setTimeoutManaged(callback, delay) {
+      const id = setTimeout(callback, delay);
+      this.activeTimeouts.push(id);
+      return id;
+  }
+
+  clearAllTimeouts() {
+      this.activeTimeouts.forEach(id => clearTimeout(id));
+      this.activeTimeouts = [];
+  }
+  // -----------------------
+
   checkPlayerName() {
-      // If name not set, prompt for it
       const name = this.statisticsManager.getPlayerName();
-      if (!name) {
-          // Simple prompt for now, could be a modal
-          // Using a simple workaround to avoid blocking UI on load before init
-          // Ideally show a "Welcome" modal.
-          // For now, let's assume we show it on first interaction or just use "Ninja" default.
-          // Or add a "Set Name" button in Settings.
-      }
-      // Display name if element exists (Home Screen)
       const nameDisplay = document.getElementById("playerNameDisplay");
       if (nameDisplay) {
           nameDisplay.textContent = name || "Mali Ninja";
@@ -75,10 +82,28 @@ class MathNinjaApp {
           const challenger = urlParams.get('challenger') || 'Ninja';
 
           if (scoreToBeat && op && levelId) {
-              alert(`⚔️ IZAZOV! ⚔️\nIgrač ${challenger} te izazvao!\nPobijedi rezultat: ${scoreToBeat}`);
-              this.selectedOp = op;
-              this.isBattleMode = true; // Set Battle Mode Flag
-              this.startGame(levelId);
+              this.battleTargetScore = scoreToBeat;
+              this.battleChallenger = challenger;
+
+              // Prepare modal content
+              document.getElementById("battleChallengerName").textContent = challenger;
+              document.getElementById("battleTargetScore").textContent = scoreToBeat;
+
+              const opName = OPERATIONS[op.toUpperCase()] ? OPERATIONS[op.toUpperCase()].label : op;
+              const levelLabel = levelId; // Ideally look up label, but ID is fine for now
+              document.getElementById("battleDetails").textContent = `${opName} - ${levelLabel}`;
+
+              // Show Modal
+              document.getElementById("battleStartModal").style.display = "flex";
+
+              // Setup Start Button
+              const startBtn = document.getElementById("btnBattleStart");
+              startBtn.onclick = () => {
+                  this.selectedOp = op;
+                  this.isBattleMode = true;
+                  document.getElementById("battleStartModal").style.display = "none";
+                  this.startGame(levelId);
+              };
           }
       }
   }
@@ -88,7 +113,6 @@ class MathNinjaApp {
    */
   setupEventListeners() {
       document.addEventListener('click', (e) => {
-          // Find closest element with data-action
           const target = e.target.closest('[data-action]');
           if (!target) return;
 
@@ -96,7 +120,6 @@ class MathNinjaApp {
           this.handleAction(action, target);
       });
 
-      // Setup audio for all buttons
       document.addEventListener('click', (e) => {
          if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
              this.audioManager.playUISound("click");
@@ -114,6 +137,10 @@ class MathNinjaApp {
           document.getElementById('resumeModal').style.display = 'none';
           this.showLevelSelect();
       });
+
+      // Battle Modal Close (Cancel)
+      // If we want a cancel button? User can just close tab or navigate away.
+      // But let's assume they might want to decline.
 
       // Name Edit
       const nameDisplay = document.getElementById("playerNameDisplay");
@@ -138,8 +165,7 @@ class MathNinjaApp {
               this.checkResumeAndNavigate();
               break;
           case 'start-mixed':
-              this.selectedOp = 'mixed';
-              this.checkResumeAndNavigate();
+              this.startMainDailyChallenge();
               break;
           case 'start-op-challenge':
               this.startOpDailyChallenge();
@@ -176,9 +202,12 @@ class MathNinjaApp {
               break;
           case 'start-game':
               const levelId = target.dataset.levelId;
-              // Check if locked
               if (target.classList.contains('locked')) return;
               this.startGame(levelId);
+              break;
+          case 'close-modal':
+              const modalId = target.dataset.target;
+              if (modalId) document.getElementById(modalId).style.display = 'none';
               break;
       }
   }
@@ -193,7 +222,8 @@ class MathNinjaApp {
           document.getElementById('resumeModal').style.display = 'flex';
       } else {
           if (this.selectedOp === 'mixed') {
-              this.startGame('mixed');
+               // This case should be handled by startMainDailyChallenge usually
+              this.startMainDailyChallenge();
           } else {
               this.showLevelSelect();
           }
@@ -209,9 +239,7 @@ class MathNinjaApp {
 
       const currentQuestion = this.gameEngine.restoreGame(savedState);
 
-      // Update UI
-      this.updateGameHeader(); // Logic extracted
-
+      this.updateGameHeader();
       this.updateStrikesDisplay(savedState.strikes);
       this.updateGameDisplay();
       this.displayQuestion(currentQuestion);
@@ -245,9 +273,10 @@ class MathNinjaApp {
    * Switch to specific screen
    */
   switchScreen(screenName) {
-    // FIX: Clear timer when navigating away from game to prevent background execution
-    if (this.timerInterval && screenName !== SCREEN_NAMES.GAME) {
+    // FIX: Clear timer AND timeouts when navigating away
+    if (screenName !== SCREEN_NAMES.GAME) {
         this.clearTimer();
+        this.clearAllTimeouts();
     }
 
     // Hide all screens
@@ -287,7 +316,6 @@ class MathNinjaApp {
    */
   showHome() {
     this.visualEffects.resetEffects();
-    // Ensure Battle Mode is reset when going home
     this.isBattleMode = false;
 
     this.switchScreen(SCREEN_NAMES.HOME);
@@ -305,13 +333,11 @@ class MathNinjaApp {
 
     document.getElementById("globalTotalScore").textContent = totalScore;
 
-    // Best Badge
     const badges = stats.badges || [];
     const bestBadgeId = badges.length > 0 ? badges[badges.length - 1] : null;
     const bestBadge = bestBadgeId ? Object.values(BADGES).find(b => b.id === bestBadgeId) : null;
     document.getElementById("globalBestBadge").textContent = bestBadge ? bestBadge.icon : "-";
 
-    // Update Op Progress Indicators
     this.updateOpProgress("add");
     this.updateOpProgress("sub");
     this.updateOpProgress("mul");
@@ -325,7 +351,6 @@ class MathNinjaApp {
       const opStats = this.statisticsManager.detailedStats.opsProgress[op] || {};
       const levels = LEVELS_BY_OPERATION[op];
 
-      // Calculate current level (highest completed + 1)
       let highestCompletedIndex = -1;
       let totalStars = 0;
 
@@ -338,7 +363,6 @@ class MathNinjaApp {
       });
 
       const currentLevelIndex = Math.min(highestCompletedIndex + 1, levels.length - 1);
-      const currentLevelLabel = levels[currentLevelIndex].label; // e.g. "Do 20"
 
       el.textContent = `L${currentLevelIndex + 1} • ${totalStars}⭐`;
   }
@@ -352,22 +376,19 @@ class MathNinjaApp {
         return;
     }
 
-    // Reset Battle Mode if we navigate to Level Select (cancel challenge)
     this.isBattleMode = false;
 
     this.switchScreen(SCREEN_NAMES.LEVEL_SELECT);
 
-    // Update Title
     const opConfig = OPERATIONS[this.selectedOp.toUpperCase()];
     document.getElementById('levelSelectTitle').textContent = `${opConfig.label}`;
 
-    // Update Daily Challenge Button visibility
-    // CHANGED: Show if at least 1 level is unlocked (which is always true for L1)
+    // Op Daily Challenge: Show if unlockedCount > 0
     const unlockedCount = LEVELS_BY_OPERATION[this.selectedOp].filter(l => this.statisticsManager.isLevelUnlocked(this.selectedOp, l.id)).length;
 
     const challengeBtn = document.getElementById("opDailyChallengeBtn");
     if (challengeBtn) {
-        if (unlockedCount > 0) { // Changed from > 1 to > 0 so it appears for everyone
+        if (unlockedCount > 0) {
              challengeBtn.style.display = 'block';
              challengeBtn.innerHTML = `📅 Dnevni Izazov (${opConfig.label})`;
         } else {
@@ -375,20 +396,57 @@ class MathNinjaApp {
         }
     }
 
-    // Generate Level Buttons
     this.generateLevelButtons();
   }
 
+  // --- DAILY CHALLENGES ---
+
   startOpDailyChallenge() {
-      // Collect unlocked levels
-      const unlockedLevels = LEVELS_BY_OPERATION[this.selectedOp]
-          .filter(l => this.statisticsManager.isLevelUnlocked(this.selectedOp, l.id))
+      // 1. Filter: "smiju biti samo prijeđeni leveli iz te operacije (min jedna zvjezdica)"
+      //    User Requirement: "Only Passed Levels".
+      const opProgress = this.statisticsManager.detailedStats.opsProgress[this.selectedOp] || {};
+
+      const passedLevels = LEVELS_BY_OPERATION[this.selectedOp]
+          .filter(l => {
+              const stats = opProgress[l.id];
+              return stats && stats.stars >= 1; // Completed/Passed
+          })
           .map(l => l.id);
 
-      if (unlockedLevels.length === 0) return;
+      if (passedLevels.length === 0) {
+          // Warning Modal if no levels passed
+          alert("Moraš proći barem jedan level (minimalno 1 zvjezdica) da bi otključao Dnevni Izazov!");
+          return;
+      }
 
-      this.startGame('mixed', unlockedLevels);
+      this.startGame('mixed', passedLevels);
   }
+
+  startMainDailyChallenge() {
+      this.selectedOp = 'mixed';
+      // 2. Filter: "mix pitanja iz svih operacija ali samo iz otkljucanih levela"
+      //    User Requirement: "Only Unlocked Levels" (from all ops).
+
+      let allUnlocked = [];
+
+      Object.values(OPERATIONS).forEach(opConfig => {
+          const op = opConfig.id;
+          const unlocked = LEVELS_BY_OPERATION[op]
+              .filter(l => this.statisticsManager.isLevelUnlocked(op, l.id))
+              .map(l => l.id);
+          allUnlocked = allUnlocked.concat(unlocked);
+      });
+
+      if (allUnlocked.length === 0) {
+           // Should ideally not happen as L1 is unlocked by default
+           alert("Nema otključanih levela!");
+           return;
+      }
+
+      this.startGame('mixed', allUnlocked);
+  }
+
+  // -------------------------
 
   /**
    * Generate level selection buttons
@@ -428,7 +486,6 @@ class MathNinjaApp {
         }
         content += `</div>`;
       } else {
-         // Show empty stars placeholder? Or nothing.
          content += `<div class="level-stars">☆☆☆</div>`;
       }
 
@@ -463,9 +520,7 @@ class MathNinjaApp {
       unlockedLevels
     );
 
-    // Update UI
     this.updateGameHeader(levelId);
-
     this.updateStrikesDisplay(0);
     this.displayQuestion(question);
     this.updateGameDisplay();
@@ -496,12 +551,6 @@ class MathNinjaApp {
 
     let text = question.text;
     document.getElementById("questionText").textContent = text;
-
-    // Add "PONOVIMO" label if retry
-    if (question.meta && question.meta.isRetry) {
-        // Maybe visual indicator
-        // document.getElementById("questionLabel").textContent = "Ispravak!";
-    }
 
     const answersContainer = document.getElementById("answerButtons");
     answersContainer.innerHTML = "";
@@ -541,9 +590,6 @@ class MathNinjaApp {
            this.showFeedback("✓", "correct");
        }
 
-       // Only mark as learned if not an immediate retry?
-       // If it was in review queue (long term), markAsLearned logic handles consecutive checks.
-       // Immediate retry is just temporary enforcement.
        if (!result.isRetry) {
            this.statisticsManager.markAsLearned(currentQuestion);
        }
@@ -568,14 +614,17 @@ class MathNinjaApp {
     this.saveCurrentGameState();
 
     if (result.strikes >= GAME_CONFIG.STRIKES_ALLOWED) {
-        setTimeout(() => this.triggerMiniBreak(), 1000);
+        // Use Managed Timeout
+        this.setTimeoutManaged(() => this.triggerMiniBreak(), 1000);
         return;
     }
 
     if (result.isGameComplete) {
-      setTimeout(() => this.endGame(result.gameStats), GAME_CONFIG.NEXT_QUESTION_DELAY);
+      // Use Managed Timeout
+      this.setTimeoutManaged(() => this.endGame(result.gameStats), GAME_CONFIG.NEXT_QUESTION_DELAY);
     } else {
-      setTimeout(() => {
+      // Use Managed Timeout
+      this.setTimeoutManaged(() => {
         const nextQuestion = this.gameEngine.generateQuestion();
         this.displayQuestion(nextQuestion);
         this.startTimer();
@@ -653,14 +702,14 @@ class MathNinjaApp {
       this.saveCurrentGameState();
 
       if (result.strikes >= GAME_CONFIG.STRIKES_ALLOWED) {
-        setTimeout(() => this.triggerMiniBreak(), 1000);
+        this.setTimeoutManaged(() => this.triggerMiniBreak(), 1000);
         return;
       }
 
       if (result.isGameComplete) {
-        setTimeout(() => this.endGame(result.gameStats), GAME_CONFIG.NEXT_QUESTION_DELAY);
+        this.setTimeoutManaged(() => this.endGame(result.gameStats), GAME_CONFIG.NEXT_QUESTION_DELAY);
       } else {
-        setTimeout(() => {
+        this.setTimeoutManaged(() => {
           const nextQuestion = this.gameEngine.generateQuestion();
           this.displayQuestion(nextQuestion);
           this.startTimer();
@@ -697,6 +746,12 @@ class MathNinjaApp {
     const stats = this.gameEngine.getGameStats();
     document.getElementById("score").textContent = stats.score;
     document.getElementById("streak").textContent = stats.streak;
+
+    // Add Battle Target Display
+    if (this.isBattleMode) {
+        const scoreEl = document.getElementById("score");
+        scoreEl.innerHTML = `${stats.score} <small>(Cilj: ${this.battleTargetScore})</small>`;
+    }
   }
 
   showFeedback(text, type) {
@@ -705,7 +760,7 @@ class MathNinjaApp {
     feedback.textContent = text;
     document.body.appendChild(feedback);
 
-    setTimeout(() => {
+    this.setTimeoutManaged(() => {
       if (feedback.parentNode) feedback.remove();
     }, 1000);
   }
@@ -720,9 +775,14 @@ class MathNinjaApp {
     // Check Badges
     const newBadges = this.badgeSystem.checkBadges(gameStats);
 
-    // Reset Battle Mode Flag
-    this.isBattleMode = false;
+    // BATTLE MODE END
+    if (this.isBattleMode) {
+        this.showBattleResult(gameStats);
+        // Reset Battle Mode Flag handled inside showBattleResult cleanup or navigation
+        return;
+    }
 
+    // Standard End Game
     if (gameStats.op !== 'mixed') {
         const performance = getPerformanceTier(gameStats.accuracy);
         this.statisticsManager.updateLevelProgress(
@@ -738,6 +798,27 @@ class MathNinjaApp {
     }
   }
 
+  showBattleResult(gameStats) {
+      const won = gameStats.score > this.battleTargetScore;
+
+      document.getElementById("battleResultTitle").textContent = won ? "POBJEDA! 🎉" : "PORAZ 😔";
+      document.getElementById("battleResultTitle").style.color = won ? "#4caf50" : "#f44336";
+
+      document.getElementById("battleResultScore").textContent = `Tvoj rezultat: ${gameStats.score}`;
+      document.getElementById("battleTargetScoreDisplay").textContent = `Cilj (${this.battleChallenger}): ${this.battleTargetScore}`;
+
+      document.getElementById("battleResultModal").style.display = 'flex';
+
+      // Setup Share Revenge Button
+      const shareBtn = document.getElementById("btnShareRevenge");
+      shareBtn.onclick = () => {
+          this.lastGameStats = gameStats;
+          this.shareChallenge();
+      };
+
+      // Cleanup on close handled by navigation actions
+  }
+
   showLevelComplete(gameStats, performance, newBadges) {
     this.switchScreen(SCREEN_NAMES.LEVEL_COMPLETE);
 
@@ -747,7 +828,7 @@ class MathNinjaApp {
 
     document.getElementById("finalScore").textContent = gameStats.score;
     document.getElementById("finalAccuracy").textContent = gameStats.accuracy + "%";
-    document.getElementById("finalMistakes").textContent = gameStats.questionsAnswered - gameStats.correctAnswers; // Approx (retries muddy this)
+    document.getElementById("finalMistakes").textContent = gameStats.questionsAnswered - gameStats.correctAnswers;
 
     // Stars
     const starsContainer = document.getElementById("resultStars");
@@ -770,18 +851,15 @@ class MathNinjaApp {
 
     // Add "Challenge Friend" button
     const actionContainer = document.querySelector(".level-complete-actions");
-    // Ensure we don't duplicate if already there (re-render safety)
     if (!document.getElementById("btnChallenge")) {
         const btn = document.createElement("button");
         btn.id = "btnChallenge";
         btn.className = "action-button secondary";
         btn.innerHTML = "⚔️ Izazovi Prijatelja";
         btn.dataset.action = "challenge-friend";
-        // Insert before Home button
         actionContainer.insertBefore(btn, actionContainer.lastElementChild);
     }
 
-    // Store last game stats for challenge sharing
     this.lastGameStats = gameStats;
   }
 
@@ -811,16 +889,14 @@ class MathNinjaApp {
 
   retryLevel() {
       if (this.gameEngine.currentOp === 'mixed') {
-          // Retry mixed mode? If daily challenge specific op, we need to know unlocked levels.
-          // Or just restart mixed.
-          // Simpler: Just restart mixed with same params.
           if (this.gameEngine.currentLevelId === 'mixed') {
-             // Was it global or local?
-             if (this.gameEngine.currentOp === 'mixed') {
-                 this.startGame('mixed');
-             } else {
-                 this.startOpDailyChallenge();
-             }
+             // Re-run the appropriate challenge type
+             // Since startGame sets currentOp='mixed' for both, we need to know source.
+             // But we don't track source type easily.
+             // HOWEVER, we can just restart with the SAME unlockedLevels/list.
+             // `gameEngine.unlockedLevels` has the list.
+             // So we call startGame with it.
+             this.startGame('mixed', this.gameEngine.unlockedLevels);
           } else {
              this.startGame(this.gameEngine.currentLevelId);
           }
@@ -834,7 +910,6 @@ class MathNinjaApp {
       const statsContent = document.getElementById("statsContent");
       const stats = this.statisticsManager.detailedStats;
       
-      // Calculate total stats
       let totalStars = 0;
       let completedLevels = 0;
 
@@ -932,8 +1007,8 @@ class MathNinjaApp {
   }
 
   pauseAndExit() {
-      // FIX: Clear timer explicitly just in case switchScreen is delayed (good practice)
       this.clearTimer();
+      this.clearAllTimeouts(); // CRITICAL FIX
       this.saveCurrentGameState();
       this.showHome();
   }
