@@ -3,7 +3,7 @@
  * @fileoverview Advanced statistics tracking for detailed game analytics
  */
 
-import { GAME_CONFIG } from "./config.js";
+import { GAME_CONFIG, FEEDBACK_TYPES } from "./config.js";
 
 export class StatisticsManager {
   constructor() {
@@ -11,10 +11,57 @@ export class StatisticsManager {
     this.playtimeInterval = null;
     this.wrongAnswers = this.loadWrongAnswers();
     this.detailedStats = this.loadDetailedStats();
-    this.dailyStreak = this.calculateDailyStreak();
+
+    // Migrations
+    this.migrateData();
 
     // Start session tracking
     this.startSession();
+  }
+
+  /**
+   * Migrate old data to new format
+   */
+  migrateData() {
+    // Migrate wrong answers
+    let migrated = false;
+    Object.keys(this.wrongAnswers).forEach(key => {
+        // Old keys were "level_1", "level_10" etc. (multiplication only)
+        if (key.startsWith('level_')) {
+           const levelNum = key.split('_')[1];
+           // New format expects keys like "mul_T1"
+           // Old level 1 (Tablica 1) -> mul_T1
+           const newKey = `mul_T${levelNum}`;
+
+           if (!this.wrongAnswers[newKey]) {
+               this.wrongAnswers[newKey] = this.wrongAnswers[key].map(item => {
+                   // Ensure item has op and levelId
+                   if (!item.op) {
+                       item.op = 'mul';
+                       item.levelId = newKey;
+                       // Old item structure: { question: "2 x 3", num1: 2, num2: 3, ... }
+                       // New canonical needs: op, a, b, ...
+                       // We can map num1->a, num2->b
+                       item.a = item.num1;
+                       item.b = item.num2;
+                       item.questionText = item.question;
+                   }
+                   return item;
+               });
+               // delete this.wrongAnswers[key]; // Keep for safety? Or delete? PRD says "Old records still show up under multiplication".
+               // If I keep it, it will duplicate if I run migration again?
+               // I check `if (!this.wrongAnswers[newKey])` so it's safe to run multiple times if I don't delete old key.
+               // But cleaner to delete old key to avoid confusion.
+               delete this.wrongAnswers[key];
+               migrated = true;
+           }
+        }
+    });
+
+    if (migrated) {
+        console.log("🔄 Migrated wrong answers to V2 format");
+        this.saveWrongAnswers();
+    }
   }
 
   /**
@@ -64,6 +111,15 @@ export class StatisticsManager {
       // Enhanced Daily Challenge Statistics
       dailyChallengeRuns: [], // array of { date, runNumber, score, mistakes, accuracy, completedTime }
       dailyChallengeToday: 0, // number of runs today
+
+      // V2 Stats
+      opsProgress: {
+          add: {}, // levelId -> { stars: 0, completed: false, bestScore: 0 }
+          sub: {},
+          mul: {},
+          div: {}
+      },
+      badges: [] // Awarded badge IDs
     };
   }
 
@@ -74,24 +130,7 @@ export class StatisticsManager {
     try {
       const saved = localStorage.getItem(GAME_CONFIG.WRONG_ANSWERS_KEY);
       if (saved) {
-        const wrongAnswers = JSON.parse(saved);
-
-        // Migrate old data structure to include allWrongAnswers
-        Object.keys(wrongAnswers).forEach((levelKey) => {
-          wrongAnswers[levelKey].forEach((wrongAnswer) => {
-            if (
-              !wrongAnswer.allWrongAnswers &&
-              wrongAnswer.wrongAnswer !== undefined
-            ) {
-              wrongAnswer.allWrongAnswers = [wrongAnswer.wrongAnswer];
-              console.log(
-                `🔄 Migrated wrong answer for ${wrongAnswer.question}: ${wrongAnswer.wrongAnswer}`
-              );
-            }
-          });
-        });
-
-        return wrongAnswers;
+        return JSON.parse(saved);
       }
     } catch (e) {
       console.log("No wrong answers data found");
@@ -254,62 +293,55 @@ export class StatisticsManager {
   }
 
   /**
-   * Track a wrong answer for learning system
+   * Track a wrong answer for learning system (V2: Canonical format)
+   * @param {Object} question - Canonical question object
+   * @param {number} wrongAnswer - The wrong answer provided
    */
-  trackWrongAnswer(level, question, wrongAnswer, correctAnswer) {
-    const levelKey = `level_${level}`;
+  trackWrongAnswer(question, wrongAnswer) {
+    const { op, meta, a, b } = question;
+    const levelId = meta.levelId || 'unknown';
 
-    if (!this.wrongAnswers[levelKey]) {
-      this.wrongAnswers[levelKey] = [];
+    // Store by levelId
+    const key = levelId;
+
+    if (!this.wrongAnswers[key]) {
+      this.wrongAnswers[key] = [];
     }
 
     // Find existing wrong answer for this question
-    const existing = this.wrongAnswers[levelKey].find(
-      (w) => w.num1 === question.num1 && w.num2 === question.num2
+    const existing = this.wrongAnswers[key].find(
+      (w) => w.op === op && w.a === a && w.b === b
     );
 
     if (existing) {
       // Update existing entry
-      // Store ALL wrong answers, not just the latest one
       if (!existing.allWrongAnswers) {
-        existing.allWrongAnswers = [existing.wrongAnswer]; // Convert old single value to array
+        existing.allWrongAnswers = [existing.wrongAnswer].filter(x => x !== undefined);
       }
-      existing.allWrongAnswers.push(wrongAnswer); // Add new wrong answer to collection
+      existing.allWrongAnswers.push(wrongAnswer);
 
-      existing.wrongAnswer = wrongAnswer; // Keep for backward compatibility
+      existing.wrongAnswer = wrongAnswer;
       existing.timestamp = Date.now();
 
-      // If it was previously learned, reset status and increment attempts
+      // If it was previously learned, reset status
       if (existing.learned) {
         existing.learned = false;
         existing.totalAttempts = (existing.totalAttempts || 1) + 1;
-        existing.correctAttempts = existing.correctAttempts || 0; // Keep track of correct attempts
-        console.log(
-          `🔄 Previously learned question failed again: ${question.num1} × ${
-            question.num2
-          } (attempt ${
-            existing.totalAttempts
-          }, wrong answers: [${existing.allWrongAnswers.join(", ")}])`
-        );
+        existing.correctAttempts = existing.correctAttempts || 0;
       } else {
         existing.totalAttempts = (existing.totalAttempts || 1) + 1;
-        console.log(
-          `❌ Updated wrong answer: ${question.num1} × ${
-            question.num2
-          } (attempt ${
-            existing.totalAttempts
-          }, wrong answers: [${existing.allWrongAnswers.join(", ")}])`
-        );
       }
     } else {
       // Create new wrong answer entry
       const wrongData = {
-        question: `${question.num1} × ${question.num2}`,
-        num1: question.num1,
-        num2: question.num2,
+        op,
+        levelId,
+        a,
+        b,
+        questionText: question.text,
+        correctAnswer: question.correct,
         wrongAnswer,
-        allWrongAnswers: [wrongAnswer], // Start collection of all wrong answers
-        correctAnswer,
+        allWrongAnswers: [wrongAnswer],
         timestamp: Date.now(),
         retryCount: 0,
         learned: false,
@@ -317,17 +349,14 @@ export class StatisticsManager {
         correctAttempts: 0,
       };
 
-      this.wrongAnswers[levelKey].push(wrongData);
-      console.log(
-        `❌ New wrong answer tracked: ${wrongData.question} = ${wrongData.correctAnswer}`
-      );
+      this.wrongAnswers[key].push(wrongData);
     }
 
     // Limit number of tracked wrong answers per level
     if (
-      this.wrongAnswers[levelKey].length > GAME_CONFIG.MAX_WRONG_ANSWERS_TRACKED
+      this.wrongAnswers[key].length > GAME_CONFIG.MAX_WRONG_ANSWERS_TRACKED
     ) {
-      this.wrongAnswers[levelKey] = this.wrongAnswers[levelKey]
+      this.wrongAnswers[key] = this.wrongAnswers[key]
         .sort((a, b) => b.timestamp - a.timestamp)
         .slice(0, GAME_CONFIG.MAX_WRONG_ANSWERS_TRACKED);
     }
@@ -336,15 +365,20 @@ export class StatisticsManager {
   }
 
   /**
-   * Mark a wrong answer as learned (marks in ALL levels where it exists)
+   * Mark a wrong answer as learned
+   * @param {Object} question - Canonical question object
    */
-  markAsLearned(level, num1, num2) {
+  markAsLearned(question) {
+    const { op, a, b } = question;
     let markedCount = 0;
 
     // Mark as learned in ALL levels where this question exists
-    Object.keys(this.wrongAnswers).forEach((levelKey) => {
-      const wrongAnswer = this.wrongAnswers[levelKey].find(
-        (w) => w.num1 === num1 && w.num2 === num2
+    // (e.g. 2x3 might be in Mul_T2 and Mul_T3 depending on implementation,
+    // though typically it's specific to one levelId. But let's check all.)
+
+    Object.keys(this.wrongAnswers).forEach((key) => {
+      const wrongAnswer = this.wrongAnswers[key].find(
+        (w) => w.op === op && w.a === a && w.b === b
       );
 
       if (wrongAnswer && !wrongAnswer.learned) {
@@ -353,70 +387,60 @@ export class StatisticsManager {
         wrongAnswer.correctAttempts = (wrongAnswer.correctAttempts || 0) + 1;
         wrongAnswer.totalAttempts = wrongAnswer.totalAttempts || 1;
 
-        // Calculate accuracy for this specific question
-        const accuracy = Math.round(
-          (wrongAnswer.correctAttempts / wrongAnswer.totalAttempts) * 100
-        );
-
         markedCount++;
-        console.log(
-          `✅ Marked as learned in ${levelKey}: ${num1} × ${num2} (accuracy: ${accuracy}%, attempts: ${wrongAnswer.totalAttempts})`
-        );
       }
     });
 
     if (markedCount > 0) {
       this.saveWrongAnswers();
-      console.log(
-        `📚 Total marked as learned: ${markedCount} instances of ${num1} × ${num2}`
-      );
+      console.log(`📚 Marked as learned: ${question.text}`);
     }
   }
 
   /**
-   * Get unlearned wrong answers for a level (includes level_0 daily challenge questions for specific table)
+   * Get unlearned wrong answers for a level
+   * @param {string} levelId
    */
-  getUnlearnedWrongAnswers(level) {
-    const levelKey = `level_${level}`;
-    let unlearnedAnswers = [];
-
-    // Get unlearned wrong answers for the specific level
-    if (this.wrongAnswers[levelKey]) {
-      unlearnedAnswers = this.wrongAnswers[levelKey]
+  getUnlearnedWrongAnswers(levelId) {
+    if (this.wrongAnswers[levelId]) {
+      return this.wrongAnswers[levelId]
         .filter((w) => !w.learned)
-        .sort((a, b) => b.timestamp - a.timestamp); // Most recent first
-    }
-
-    // For non-daily challenge levels, also include level_0 questions that match this table
-    if (level !== 0 && this.wrongAnswers["level_0"]) {
-      const dailyChallengeQuestions = this.wrongAnswers["level_0"]
-        .filter((w) => !w.learned && (w.num1 === level || w.num2 === level))
         .sort((a, b) => b.timestamp - a.timestamp);
-
-      unlearnedAnswers = [...unlearnedAnswers, ...dailyChallengeQuestions];
     }
-
-    return unlearnedAnswers;
+    return [];
   }
 
   /**
-   * Get all wrong answers for daily challenge mix (from all levels 0-10)
+   * Get all unlearned wrong answers across all levels (for Daily Challenge or Mixed Review)
    */
   getAllUnlearnedWrongAnswers() {
-    const allWrong = [];
+      let all = [];
+      Object.keys(this.wrongAnswers).forEach(key => {
+          all = all.concat(this.getUnlearnedWrongAnswers(key));
+      });
+      return all;
+  }
 
-    // Include unlearned wrong answers from all levels (0-10) for daily challenge
-    for (let level = 0; level <= 10; level++) {
-      const levelKey = `level_${level}`;
-      if (this.wrongAnswers[levelKey]) {
-        const levelWrong = this.wrongAnswers[levelKey].filter(
-          (w) => !w.learned
-        );
-        allWrong.push(...levelWrong);
+  /**
+   * Update level progress
+   * @param {string} op
+   * @param {string} levelId
+   * @param {number} stars
+   * @param {number} score
+   */
+  updateLevelProgress(op, levelId, stars, score) {
+      if (!this.detailedStats.opsProgress[op]) {
+          this.detailedStats.opsProgress[op] = {};
       }
-    }
 
-    return allWrong.sort((a, b) => b.timestamp - a.timestamp);
+      const current = this.detailedStats.opsProgress[op][levelId] || { stars: 0, completed: false, bestScore: 0 };
+
+      if (stars > current.stars) current.stars = stars;
+      if (score > current.bestScore) current.bestScore = score;
+      if (stars > 0) current.completed = true;
+
+      this.detailedStats.opsProgress[op][levelId] = current;
+      this.saveDetailedStats();
   }
 
   /**
@@ -433,67 +457,6 @@ export class StatisticsManager {
   getTodayLaunches() {
     const today = new Date().toDateString();
     return this.detailedStats.dailyLaunches[today] || 0;
-  }
-
-  /**
-   * Get comprehensive statistics for display
-   */
-  getComprehensiveStats() {
-    return {
-      totalPlaytimeMinutes: this.detailedStats.totalPlaytimeMinutes,
-      totalPlaytimeFormatted: this.formatPlaytime(
-        this.detailedStats.totalPlaytimeMinutes
-      ),
-      dailyChallengeStreak: this.calculateDailyStreak(),
-      longestDailyStreak: this.detailedStats.longestDailyStreak,
-      todayPlaytime: this.getTodayPlaytime(),
-      todayPlaytimeFormatted: this.formatPlaytime(this.getTodayPlaytime()),
-      todayLaunches: this.getTodayLaunches(),
-      averageSessionLength: this.detailedStats.averageSessionLength,
-      averageSessionFormatted: this.formatPlaytime(
-        this.detailedStats.averageSessionLength
-      ),
-      sessionCount: this.detailedStats.sessionCount,
-      totalWrongAnswers: this.getTotalWrongAnswersCount(),
-      unlearnedWrongAnswers: this.getTotalUnlearnedCount(),
-    };
-  }
-
-  /**
-   * Format playtime in minutes to readable format
-   */
-  formatPlaytime(minutes) {
-    if (minutes < 1) {
-      return "< 1 min";
-    } else if (minutes < 60) {
-      return `${Math.round(minutes)} min`;
-    } else {
-      const hours = Math.floor(minutes / 60);
-      const mins = Math.round(minutes % 60);
-      return `${hours}h ${mins}m`;
-    }
-  }
-
-  /**
-   * Get total wrong answers count
-   */
-  getTotalWrongAnswersCount() {
-    let total = 0;
-    Object.values(this.wrongAnswers).forEach((levelWrong) => {
-      total += levelWrong.length;
-    });
-    return total;
-  }
-
-  /**
-   * Get total unlearned wrong answers count
-   */
-  getTotalUnlearnedCount() {
-    let total = 0;
-    Object.values(this.wrongAnswers).forEach((levelWrong) => {
-      total += levelWrong.filter((w) => !w.learned).length;
-    });
-    return total;
   }
 
   /**

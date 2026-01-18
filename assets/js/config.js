@@ -17,12 +17,10 @@ export const GAME_CONFIG = {
   // Game mechanics
   QUESTIONS_PER_LEVEL: 10,
   ACCURACY_THRESHOLD: 80, // Minimum accuracy for star completion
-  MAX_LEVEL: 10,
-  MIN_LEVEL: 1,
+  STRIKES_ALLOWED: 3, // Number of strikes before a mini-break
 
   // Answer generation
-  WRONG_ANSWERS_COUNT: 3,
-  ANSWER_VARIATION_RANGE: 10,
+  WRONG_ANSWERS_COUNT: 3, // Total options = 1 correct + 3 wrong = 4
 
   // UI timing
   FEEDBACK_DURATION: 1000, // 1 second
@@ -36,6 +34,8 @@ export const GAME_CONFIG = {
   STORAGE_KEY: "mathNinjaStats",
   WRONG_ANSWERS_KEY: "mathNinjaWrongAnswers",
   STATISTICS_KEY: "mathNinjaDetailedStats",
+  BADGES_KEY: "mathNinjaBadges",
+  STORAGE_VERSION: 2,
 
   // New: Streak Visual Effects
   STREAK_EFFECT_LEVELS: {
@@ -54,6 +54,43 @@ export const GAME_CONFIG = {
   WRONG_ANSWER_RETRY_DELAY: 2000, // Delay before retry offer
   MAX_WRONG_ANSWERS_TRACKED: 50, // Maximum wrong answers to track per level
   RETRY_TRIGGER_THRESHOLD: 2, // Correct answers needed before retry offer
+  REVIEW_CHANCE: 0.35, // 35% chance to show a review question
+};
+
+export const OPERATIONS = {
+  ADD: { id: 'add', label: 'Zbrajanje', symbol: '+' },
+  SUB: { id: 'sub', label: 'Oduzimanje', symbol: '−' },
+  MUL: { id: 'mul', label: 'Množenje', symbol: '×' },
+  DIV: { id: 'div', label: 'Dijeljenje', symbol: '÷' }
+};
+
+export const LEVELS_BY_OPERATION = {
+  add: [
+    { id: 'add_L1', label: 'Do 10', hint: '0 - 10', range: [0, 10], allowCarry: false },
+    { id: 'add_L2', label: 'Do 20', hint: '0 - 20', range: [0, 20], allowCarry: true },
+    { id: 'add_L3', label: 'Do 50', hint: '0 - 50', range: [0, 50], allowCarry: true },
+    { id: 'add_L4', label: 'Do 100', hint: '0 - 100', range: [0, 100], allowCarry: true }
+  ],
+  sub: [
+    { id: 'sub_L1', label: 'Do 10', hint: '0 - 10', range: [0, 10], allowNegative: false },
+    { id: 'sub_L2', label: 'Do 20', hint: '0 - 20', range: [0, 20], allowNegative: false },
+    { id: 'sub_L3', label: 'Do 50', hint: '0 - 50', range: [0, 50], allowNegative: false },
+    { id: 'sub_L4', label: 'Do 100', hint: '0 - 100', range: [0, 100], allowNegative: false }
+  ],
+  mul: Array.from({ length: 10 }, (_, i) => ({
+    id: `mul_T${i + 1}`,
+    label: `Broj ${i + 1}`,
+    hint: `Tablica broja ${i + 1}`,
+    table: i + 1,
+    range: [1, 10]
+  })),
+  div: Array.from({ length: 9 }, (_, i) => ({
+    id: `div_T${i + 2}`,
+    label: `S brojem ${i + 2}`,
+    hint: `Dijeljenje s ${i + 2}`,
+    divisor: i + 2,
+    range: [1, 10] // Quotient range (result)
+  }))
 };
 
 export const PERFORMANCE_TIERS = [
@@ -95,12 +132,13 @@ export const PERFORMANCE_TIERS = [
 ];
 
 export const SCREEN_NAMES = {
-  MENU: "menu-screen",
+  HOME: "home-screen", // New Home/Op Select
   LEVEL_SELECT: "level-select-screen",
   GAME: "game-screen",
   STATS: "stats-screen",
   SETTINGS: "settings-screen",
   LEVEL_COMPLETE: "level-complete-screen",
+  BADGES: "badges-screen" // New Badges screen
 };
 
 export const FEEDBACK_TYPES = {
@@ -114,17 +152,6 @@ export const FEEDBACK_MESSAGES = {
   [FEEDBACK_TYPES.CORRECT]: "✓",
   [FEEDBACK_TYPES.INCORRECT]: "✗",
   [FEEDBACK_TYPES.TIMEOUT]: "⏰",
-};
-
-export const DEFAULT_STATS = {
-  totalScore: 0,
-  gamesPlayed: 0,
-  totalQuestions: 0,
-  totalCorrect: 0,
-  bestStreak: 0,
-  completedLevels: [],
-  lastPlayed: null,
-  daysPlayed: [],
 };
 
 // New: Streak Visual Themes
