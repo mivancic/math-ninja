@@ -30,6 +30,7 @@ class MathNinjaApp {
 
     // UI State
     this.selectedOp = null; // 'add', 'sub', 'mul', 'div', 'mixed'
+    this.isBattleMode = false; // Flag for battle mode
 
     // Initialize app
     this.init();
@@ -76,6 +77,7 @@ class MathNinjaApp {
           if (scoreToBeat && op && levelId) {
               alert(`⚔️ IZAZOV! ⚔️\nIgrač ${challenger} te izazvao!\nPobijedi rezultat: ${scoreToBeat}`);
               this.selectedOp = op;
+              this.isBattleMode = true; // Set Battle Mode Flag
               this.startGame(levelId);
           }
       }
@@ -208,13 +210,7 @@ class MathNinjaApp {
       const currentQuestion = this.gameEngine.restoreGame(savedState);
 
       // Update UI
-      if (this.selectedOp === 'mixed') {
-          document.getElementById("currentLevelDisplay").textContent = "Dnevni Izazov (Mix)";
-      } else {
-          const levels = LEVELS_BY_OPERATION[this.selectedOp];
-          const levelConfig = levels.find(l => l.id === this.gameEngine.currentLevelId);
-          document.getElementById("currentLevelDisplay").textContent = levelConfig ? levelConfig.label : this.gameEngine.currentLevelId;
-      }
+      this.updateGameHeader(); // Logic extracted
 
       this.updateStrikesDisplay(savedState.strikes);
       this.updateGameDisplay();
@@ -249,6 +245,11 @@ class MathNinjaApp {
    * Switch to specific screen
    */
   switchScreen(screenName) {
+    // FIX: Clear timer when navigating away from game to prevent background execution
+    if (this.timerInterval && screenName !== SCREEN_NAMES.GAME) {
+        this.clearTimer();
+    }
+
     // Hide all screens
     Object.values(SCREEN_NAMES).forEach((screen) => {
       const element = document.querySelector(`.${screen}`);
@@ -286,6 +287,9 @@ class MathNinjaApp {
    */
   showHome() {
     this.visualEffects.resetEffects();
+    // Ensure Battle Mode is reset when going home
+    this.isBattleMode = false;
+
     this.switchScreen(SCREEN_NAMES.HOME);
     this.audioManager.startBackgroundMusic();
     this.checkPlayerName();
@@ -348,6 +352,9 @@ class MathNinjaApp {
         return;
     }
 
+    // Reset Battle Mode if we navigate to Level Select (cancel challenge)
+    this.isBattleMode = false;
+
     this.switchScreen(SCREEN_NAMES.LEVEL_SELECT);
 
     // Update Title
@@ -355,14 +362,12 @@ class MathNinjaApp {
     document.getElementById('levelSelectTitle').textContent = `${opConfig.label}`;
 
     // Update Daily Challenge Button visibility
-    // Should be visible if > 0 levels unlocked? Always visible, but mixed?
-    // "Mix of all levels that are not fully completed... unlock them if we have at least one star"
-    // Actually, "Mix of all unlocked levels" is the usual interpretation.
+    // CHANGED: Show if at least 1 level is unlocked (which is always true for L1)
     const unlockedCount = LEVELS_BY_OPERATION[this.selectedOp].filter(l => this.statisticsManager.isLevelUnlocked(this.selectedOp, l.id)).length;
 
     const challengeBtn = document.getElementById("opDailyChallengeBtn");
     if (challengeBtn) {
-        if (unlockedCount > 1) { // Only show if more than 1 level available to mix? Or just always if > 0?
+        if (unlockedCount > 0) { // Changed from > 1 to > 0 so it appears for everyone
              challengeBtn.style.display = 'block';
              challengeBtn.innerHTML = `📅 Dnevni Izazov (${opConfig.label})`;
         } else {
@@ -459,19 +464,28 @@ class MathNinjaApp {
     );
 
     // Update UI
-    if (levelId === 'mixed') {
-        const opLabel = (this.selectedOp === 'mixed') ? 'Mix' : OPERATIONS[this.selectedOp.toUpperCase()].label;
-        document.getElementById("currentLevelDisplay").textContent = `Izazov (${opLabel})`;
-    } else {
-        const levels = LEVELS_BY_OPERATION[this.selectedOp];
-        const levelConfig = levels.find(l => l.id === levelId);
-        document.getElementById("currentLevelDisplay").textContent = levelConfig ? levelConfig.label : levelId;
-    }
+    this.updateGameHeader(levelId);
 
     this.updateStrikesDisplay(0);
     this.displayQuestion(question);
     this.updateGameDisplay();
     this.startTimer();
+  }
+
+  updateGameHeader(levelId) {
+    const headerEl = document.getElementById("currentLevelDisplay");
+
+    if (this.isBattleMode) {
+        // Battle Mode Indicator
+        headerEl.innerHTML = `<span style="color:#ff4500;">⚔️ BATTLE MODE</span>`;
+    } else if (this.gameEngine.currentLevelId === 'mixed') {
+        const opLabel = (this.selectedOp === 'mixed') ? 'Mix' : OPERATIONS[this.selectedOp.toUpperCase()].label;
+        headerEl.textContent = `Izazov (${opLabel})`;
+    } else {
+        const levels = LEVELS_BY_OPERATION[this.selectedOp];
+        const levelConfig = levels.find(l => l.id === this.gameEngine.currentLevelId);
+        headerEl.textContent = levelConfig ? levelConfig.label : this.gameEngine.currentLevelId;
+    }
   }
 
   /**
@@ -706,6 +720,9 @@ class MathNinjaApp {
     // Check Badges
     const newBadges = this.badgeSystem.checkBadges(gameStats);
 
+    // Reset Battle Mode Flag
+    this.isBattleMode = false;
+
     if (gameStats.op !== 'mixed') {
         const performance = getPerformanceTier(gameStats.accuracy);
         this.statisticsManager.updateLevelProgress(
@@ -915,6 +932,8 @@ class MathNinjaApp {
   }
 
   pauseAndExit() {
+      // FIX: Clear timer explicitly just in case switchScreen is delayed (good practice)
+      this.clearTimer();
       this.saveCurrentGameState();
       this.showHome();
   }
