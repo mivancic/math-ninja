@@ -16,13 +16,11 @@ export const GAME_CONFIG = {
 
   // Game mechanics
   QUESTIONS_PER_LEVEL: 10,
-  ACCURACY_THRESHOLD: 80, // Minimum accuracy for star completion
-  MAX_LEVEL: 10,
-  MIN_LEVEL: 1,
+  UNLOCK_THRESHOLD: 60, // Minimum accuracy to unlock next level (1 star)
+  STRIKES_ALLOWED: 3, // Number of strikes before a mini-break
 
   // Answer generation
-  WRONG_ANSWERS_COUNT: 3,
-  ANSWER_VARIATION_RANGE: 10,
+  WRONG_ANSWERS_COUNT: 3, // Total options = 1 correct + 3 wrong = 4
 
   // UI timing
   FEEDBACK_DURATION: 1000, // 1 second
@@ -36,6 +34,9 @@ export const GAME_CONFIG = {
   STORAGE_KEY: "mathNinjaStats",
   WRONG_ANSWERS_KEY: "mathNinjaWrongAnswers",
   STATISTICS_KEY: "mathNinjaDetailedStats",
+  BADGES_KEY: "mathNinjaBadges",
+  PLAYER_PROFILE_KEY: "mathNinjaProfile", // New: Player Name
+  STORAGE_VERSION: 2,
 
   // New: Streak Visual Effects
   STREAK_EFFECT_LEVELS: {
@@ -54,36 +55,66 @@ export const GAME_CONFIG = {
   WRONG_ANSWER_RETRY_DELAY: 2000, // Delay before retry offer
   MAX_WRONG_ANSWERS_TRACKED: 50, // Maximum wrong answers to track per level
   RETRY_TRIGGER_THRESHOLD: 2, // Correct answers needed before retry offer
+  REVIEW_CHANCE: 0.05, // 5% chance to show a review question (User requested 2-5%)
+};
+
+export const OPERATIONS = {
+  ADD: { id: 'add', label: 'Zbrajanje', symbol: '+' },
+  SUB: { id: 'sub', label: 'Oduzimanje', symbol: '−' },
+  MUL: { id: 'mul', label: 'Množenje', symbol: '×' },
+  DIV: { id: 'div', label: 'Dijeljenje', symbol: '÷' }
+};
+
+export const LEVELS_BY_OPERATION = {
+  add: [
+    { id: 'add_L1', label: 'Do 10', hint: '0 - 10', range: [0, 10], allowCarry: false },
+    { id: 'add_L2', label: 'Do 20', hint: '0 - 20', range: [0, 20], allowCarry: true },
+    { id: 'add_L3', label: 'Do 50', hint: '0 - 50', range: [0, 50], allowCarry: true },
+    { id: 'add_L4', label: 'Do 100', hint: '0 - 100', range: [0, 100], allowCarry: true }
+  ],
+  sub: [
+    { id: 'sub_L1', label: 'Do 10', hint: '0 - 10', range: [0, 10], allowNegative: false },
+    { id: 'sub_L2', label: 'Do 20', hint: '0 - 20', range: [0, 20], allowNegative: false },
+    { id: 'sub_L3', label: 'Do 50', hint: '0 - 50', range: [0, 50], allowNegative: false },
+    { id: 'sub_L4', label: 'Do 100', hint: '0 - 100', range: [0, 100], allowNegative: false }
+  ],
+  mul: Array.from({ length: 10 }, (_, i) => ({
+    id: `mul_T${i + 1}`,
+    label: `Broj ${i + 1}`,
+    hint: `Tablica broja ${i + 1}`,
+    table: i + 1,
+    range: [1, 10]
+  })),
+  div: Array.from({ length: 9 }, (_, i) => ({
+    id: `div_T${i + 2}`,
+    label: `S brojem ${i + 2}`,
+    hint: `Dijeljenje s ${i + 2}`,
+    divisor: i + 2,
+    range: [1, 10] // Quotient range (result)
+  }))
 };
 
 export const PERFORMANCE_TIERS = [
   {
-    threshold: 95,
+    threshold: 100,
     emoji: "🤩",
     title: "IZVRSNO!",
     stars: 3,
     color: "#4caf50",
   },
   {
-    threshold: 85,
+    threshold: 80,
     emoji: "😄",
     title: "Odlično!",
-    stars: 3,
+    stars: 2,
     color: "#8bc34a",
   },
   {
-    threshold: 70,
+    threshold: 60,
     emoji: "😊",
-    title: "Super!",
-    stars: 2,
-    color: "#ffc107",
-  },
-  {
-    threshold: 50,
-    emoji: "🙂",
     title: "Dobro!",
     stars: 1,
-    color: "#ff9800",
+    color: "#ffc107",
   },
   {
     threshold: 0,
@@ -95,12 +126,14 @@ export const PERFORMANCE_TIERS = [
 ];
 
 export const SCREEN_NAMES = {
-  MENU: "menu-screen",
+  HOME: "home-screen",
   LEVEL_SELECT: "level-select-screen",
   GAME: "game-screen",
   STATS: "stats-screen",
   SETTINGS: "settings-screen",
   LEVEL_COMPLETE: "level-complete-screen",
+  BADGES: "badges-screen",
+  LEADERBOARD: "leaderboard-screen" // New
 };
 
 export const FEEDBACK_TYPES = {
@@ -114,17 +147,6 @@ export const FEEDBACK_MESSAGES = {
   [FEEDBACK_TYPES.CORRECT]: "✓",
   [FEEDBACK_TYPES.INCORRECT]: "✗",
   [FEEDBACK_TYPES.TIMEOUT]: "⏰",
-};
-
-export const DEFAULT_STATS = {
-  totalScore: 0,
-  gamesPlayed: 0,
-  totalQuestions: 0,
-  totalCorrect: 0,
-  bestStreak: 0,
-  completedLevels: [],
-  lastPlayed: null,
-  daysPlayed: [],
 };
 
 // New: Streak Visual Themes
@@ -181,12 +203,12 @@ export const STREAK_THEMES = {
  * @returns {Object} Performance tier object
  */
 export function getPerformanceTier(accuracy) {
-  if (accuracy >= 95) {
+  if (accuracy >= 100) {
     return { stars: 3, title: "Savršeno!", color: "#4CAF50", emoji: "🥷" };
-  } else if (accuracy >= 85) {
-    return { stars: 2, title: "Odlično!", color: "#FF9800", emoji: "✨" };
-  } else if (accuracy >= 70) {
-    return { stars: 1, title: "Dobro!", color: "#2196F3", emoji: "👍" };
+  } else if (accuracy >= 80) {
+    return { stars: 2, title: "Odlično!", color: "#8bc34a", emoji: "✨" };
+  } else if (accuracy >= 60) {
+    return { stars: 1, title: "Dobro!", color: "#ffc107", emoji: "👍" };
   } else {
     return {
       stars: 0,
@@ -203,10 +225,9 @@ export function getPerformanceTier(accuracy) {
  * @returns {number} Number of stars (0-3)
  */
 export function calculateStars(accuracy) {
-  if (accuracy >= 95) return 3;
-  if (accuracy >= 85) return 3;
-  if (accuracy >= 70) return 2;
-  if (accuracy >= 50) return 1;
+  if (accuracy >= 100) return 3;
+  if (accuracy >= 80) return 2;
+  if (accuracy >= 60) return 1;
   return 0;
 }
 
